@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import { isLight } from '../theme.js'
 
 // A DOM port of the MorphSlider "melt" transition, for swapping tab panels.
 // The original morphs WebGL textures; DOM content can't be textured, so the same
@@ -38,6 +39,10 @@ export default function MorphTransition({
   // 0 = settled, 1 = fully melted. Kept in a ref + written straight to the DOM
   // so the filter animates without a re-render per frame.
   const [melting, setMelting] = useState(false)
+  // Whether this melt is happening on paper — the aberration has to work the
+  // other way round there. State to pick the filter, a ref to read per frame.
+  const [paper, setPaper] = useState(false)
+  const paperRef = useRef(false)
 
   const wrapRef = useRef(null)
   const turbRef = useRef(null)
@@ -68,6 +73,10 @@ export default function MorphTransition({
     const half = (duration * 1000) / 2
     let start = null
     let swapped = false
+    // Which way the light is going, asked once — a melt is over in a second.
+    const onPaper = isLight()
+    paperRef.current = onPaper
+    setPaper(onPaper)
     setMelting(true)
 
     const frame = (now) => {
@@ -98,14 +107,19 @@ export default function MorphTransition({
         turbRef.current.setAttribute('baseFrequency', `${(bf * 0.6).toFixed(5)} ${bf.toFixed(5)}`)
       }
       dispRef.current?.setAttribute('scale', String(p * intensity * scale * 60))
-      const ab = p * aberration * 14
+      // Darkened fringes carry further on paper than glowing ones do on ink.
+      const ab = p * aberration * 14 * (paperRef.current ? 0.6 : 1)
       offRRef.current?.setAttribute('dx', String(ab))
       offBRef.current?.setAttribute('dx', String(-ab))
       if (wrap) {
         wrap.style.transform = `translate3d(0, ${(-p * drift * 60).toFixed(2)}px, 0) scale(${(1 - p * 0.02 * intensity).toFixed(4)})`
-        wrap.style.opacity = String(1 - p * 0.75)
+        // Fading toward the page reads as dissolving into the dark at night and
+        // as faded print by day, so by day it barely fades at all.
+        wrap.style.opacity = String(1 - p * (paperRef.current ? 0.3 : 0.75))
       }
-      if (washRef.current) washRef.current.style.opacity = String(p * intensity)
+      if (washRef.current) {
+        washRef.current.style.opacity = String(p * intensity * (paperRef.current ? 0.45 : 1))
+      }
     }
 
     // Hand the panel back to the browser completely: every inline style is
@@ -158,7 +172,22 @@ export default function MorphTransition({
       <svg aria-hidden width="0" height="0" style={{ position: 'absolute' }}>
         <filter id={fid} x="-15%" y="-15%" width="130%" height="130%" colorInterpolationFilters="sRGB">
           <feTurbulence ref={turbRef} type="fractalNoise" baseFrequency="0.0024 0.004" numOctaves="2" seed="7" result="noise" />
-          <feDisplacementMap ref={dispRef} in="SourceGraphic" in2="noise" scale="0" xChannelSelector="R" yChannelSelector="G" result="melted" />
+          <feDisplacementMap ref={dispRef} in="SourceGraphic" in2="noise" scale="0" xChannelSelector="R" yChannelSelector="G" result="displaced" />
+          {/* Splitting the channels and screening them back together is an
+              additive trick: on ink it glows, on paper it only bleaches. So on
+              paper the whole stage is done inside out — invert, split, invert
+              back — which makes the fringes darken instead, the way a
+              misregistered print does. */}
+          <feColorMatrix
+            in="displaced"
+            type="matrix"
+            result="melted"
+            values={
+              paper
+                ? '-1 0 0 0 1  0 -1 0 0 1  0 0 -1 0 1  0 0 0 1 0'
+                : '1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 1 0'
+            }
+          />
           {/* chromatic aberration: pull the red and blue channels apart */}
           <feColorMatrix in="melted" type="matrix" result="red"
             values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" />
@@ -169,7 +198,14 @@ export default function MorphTransition({
           <feColorMatrix in="melted" type="matrix" result="green"
             values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" />
           <feBlend in="redOff" in2="green" mode="screen" result="rg" />
-          <feBlend in="rg" in2="blueOff" mode="screen" />
+          <feBlend in="rg" in2="blueOff" mode="screen" result="split" />
+          {paper && (
+            <feColorMatrix
+              in="split"
+              type="matrix"
+              values="-1 0 0 0 1  0 -1 0 0 1  0 0 -1 0 1  0 0 0 1 0"
+            />
+          )}
         </filter>
       </svg>
 

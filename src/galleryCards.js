@@ -5,6 +5,8 @@
 // it hasn't gathered one yet), a boundary so the card reads as an object on the
 // black page, and the words the poet asked for, set as tags in the pigment.
 
+import { isLight } from './theme.js'
+
 const W = 700
 const H = 900
 
@@ -164,19 +166,23 @@ function pickWords(words) {
 }
 
 function ground(ctx, palette) {
-  const paper = token('--paper', '#000000')
+  const light = isLight()
   const g = ctx.createLinearGradient(0, 0, W * 0.4, H)
   if (palette?.length >= 2) {
     g.addColorStop(0, palette[0])
     g.addColorStop(1, palette[1])
+  } else if (light) {
+    g.addColorStop(0, token('--card', '#f6f3ed'))
+    g.addColorStop(1, token('--paper-2', '#e6e0d6'))
   } else {
     g.addColorStop(0, '#1b2028')
-    g.addColorStop(1, paper === '#000000' ? '#000000' : '#12151c')
+    g.addColorStop(1, '#000000')
   }
   ctx.fillStyle = g
   ctx.fillRect(0, 0, W, H)
-  // A wash, so type and tags stay readable whatever the palette turned out to be.
-  ctx.fillStyle = 'rgba(8,9,13,0.45)'
+  // A wash the way the page is going, so type and tags stay readable whatever
+  // the palette turned out to be — and so a card by day isn't a hole in it.
+  ctx.fillStyle = light ? 'rgba(247,244,238,0.62)' : 'rgba(8,9,13,0.45)'
   ctx.fillRect(0, 0, W, H)
 }
 
@@ -199,7 +205,7 @@ export function typeCard(text, palette = [], words = []) {
   const pad = MARGIN + 26
   const fontPx = 42
   ctx.font = `italic ${fontPx}px "Iowan Old Style", Georgia, serif`
-  ctx.fillStyle = '#f2ede5'
+  ctx.fillStyle = token('--body', '#f2ede5')
   ctx.textBaseline = 'top'
   ctx.textAlign = 'left'
 

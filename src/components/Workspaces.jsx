@@ -12,6 +12,7 @@ import { downloadWorkspaceZip } from '../download.js'
 import { isSupabaseConfigured } from '../lib/supabase.js'
 import SignIn, { useSession, signOut } from '../auth.jsx'
 import { Reveal } from '../motion.jsx'
+import { useTheme } from '../theme.js'
 
 function when(iso) {
   const d = new Date(iso)
@@ -32,13 +33,18 @@ export default function Workspaces({ onOpen, onNew }) {
 
   const session = useSession()
   const needsSignIn = isSupabaseConfigured && session === null
+  const theme = useTheme()
 
   // Building the cards paints a canvas per workspace — and waits on its picture
   // to decode — while handing the gallery a new array tears down its WebGL
-  // scene. So only rebuild when the workspaces themselves actually change.
-  const cardsKey = (items || [])
-    .map((w) => `${w.id}:${w.images?.[0]?.id || ''}:${w.words?.evocative?.length || 0}`)
-    .join('|')
+  // scene. So only rebuild when the workspaces themselves change, or when the
+  // light does: paint can't follow a token the way CSS can.
+  const cardsKey = [
+    theme,
+    ...(items || []).map(
+      (w) => `${w.id}:${w.images?.[0]?.id || ''}:${w.words?.evocative?.length || 0}`,
+    ),
+  ].join('|')
   const [cards, setCards] = useState([])
   useEffect(() => {
     let alive = true
@@ -68,7 +74,7 @@ export default function Workspaces({ onOpen, onNew }) {
   const inkColor = useMemo(() => {
     if (typeof window === 'undefined') return '#ede7df'
     return getComputedStyle(document.documentElement).getPropertyValue('--body').trim() || '#ede7df'
-  }, [session])
+  }, [theme])
 
   async function refresh() {
     setError(null)
