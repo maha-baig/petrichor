@@ -28,13 +28,47 @@ export async function signOut() {
 }
 
 /**
+ * A link that didn't work comes back as an error in the URL fragment, e.g.
+ *   #error=access_denied&error_code=otp_expired&error_description=...
+ * Supabase can't turn that into a session, so nothing happens on screen unless
+ * we read it ourselves. Read it once, say it plainly, and clear it from the URL
+ * so a refresh doesn't accuse her twice.
+ */
+function readLinkError() {
+  if (typeof window === 'undefined') return null
+  const hash = window.location.hash
+  if (!hash || !hash.includes('error')) return null
+
+  const p = new URLSearchParams(hash.slice(1))
+  const code = p.get('error_code')
+  const raw = p.get('error_description')?.replace(/\+/g, ' ')
+  if (!p.get('error') && !code) return null
+
+  // Tidy the address bar — the error has been read.
+  window.history.replaceState(null, '', window.location.pathname + window.location.search)
+
+  if (code === 'otp_expired')
+    return 'That link has expired — they only last an hour, and each one can be opened once. Send yourself a fresh one below.'
+  if (code === 'access_denied')
+    return 'That link could not be used. It may already have been opened. Send yourself a fresh one below.'
+  return raw || 'That link could not be used. Send yourself a fresh one below.'
+}
+
+// Read at import, before anything renders: the link lands on whatever page she
+// was on, which usually isn't the one holding the sign-in form. Keeping the
+// answer here lets the app send her somewhere that can actually explain it.
+export const linkError = readLinkError()
+
+/**
  * Magic link only — no password to choose, forget, or leak. Supabase mails a
  * link; clicking it comes back here with a session already in hand.
  */
 export default function SignIn({ title = 'Keep your work', blurb }) {
   const [email, setEmail] = useState('')
   const [phase, setPhase] = useState('idle') // idle | sending | sent
-  const [error, setError] = useState(null)
+  // A dead link should explain itself the moment she lands, not sit silent
+  // while she wonders whether anything happened.
+  const [error, setError] = useState(linkError)
 
   async function send(e) {
     e.preventDefault()

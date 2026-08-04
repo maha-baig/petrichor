@@ -11,6 +11,7 @@ import TopNav from './components/TopNav.jsx'
 import FeedbackMarkup from './components/FeedbackMarkup.jsx'
 import MorphTransition from './components/MorphTransition.jsx'
 import { blankWorkspace, saveWorkspace, getWorkspace, pruneEmpty } from './store.js'
+import { linkError } from './auth.jsx'
 
 function ThemeToggle() {
   function toggle() {
@@ -32,8 +33,11 @@ function ThemeToggle() {
 }
 
 export default function App() {
-  const [entered, setEntered] = useState(false)
-  const [tab, setTab] = useState('spark')
+  // A sign-in link that failed comes back to whatever page she left from —
+  // usually the hero, which has nothing to say about it. Open the workspaces
+  // view instead, where the sign-in form can explain what went wrong.
+  const [entered, setEntered] = useState(Boolean(linkError))
+  const [tab, setTab] = useState(linkError ? 'work' : 'spark')
   const [mood, setMood] = useState('melancholy')
   const [autoFind, setAutoFind] = useState(false)
   const [workspace, setWorkspace] = useState(null) // the one currently open
