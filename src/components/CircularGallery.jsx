@@ -283,14 +283,15 @@ class Media {
       font: this.font,
     })
   }
-  update(scroll) {
-    // The ribbon loops by moving a card a whole ribbon-length at a time. Wrap
-    // on where the card has ended up rather than on which way the last drag
-    // went: every card then sits within half a ribbon of the middle however it
-    // got there — including across a resize part-way through a browse, which
-    // used to leave a card-shaped hole that only more dragging would close.
+  update(scroll, loop) {
+    // A ribbon long enough to run off both sides of the frame comes round
+    // again. Wrap on where the card has ended up rather than on which way the
+    // last drag went: every card then sits within half a ribbon of the middle
+    // however it got there — including across a resize part-way through a
+    // browse, which used to leave a card-shaped hole only more dragging closed.
+    if (!loop) this.extra = 0
     let x = this.x - scroll.current - this.extra
-    if (Math.abs(x) > this.widthTotal / 2) {
+    if (loop && Math.abs(x) > this.widthTotal / 2) {
       const shift = Math.round(x / this.widthTotal) * this.widthTotal
       this.extra += shift
       x -= shift
@@ -412,14 +413,8 @@ class App {
     this.planeGeometry = new Plane(this.gl, { heightSegments: 50, widthSegments: 100 })
   }
   createMedias(items, bend = 1, textColor, borderRadius, font) {
-    const galleryItems = items && items.length ? items : []
-    // The ribbon loops by drawing the set more than once. Two passes is plenty
-    // for a full drawer, but one or two workspaces would leave it mostly empty
-    // — so repeat until there are enough cards to fill the turn and to keep the
-    // point a card wraps at safely off-screen. Kept even, so the card that
-    // greets you is still the first workspace.
-    const passes = galleryItems.length ? 2 * Math.max(1, Math.ceil(4 / galleryItems.length)) : 0
-    this.mediasImages = Array.from({ length: passes }, () => galleryItems).flat()
+    // One card per workspace. A short ribbon simply doesn't come round.
+    this.mediasImages = items && items.length ? items : []
     this.medias = this.mediasImages.map((data, index) => {
       return new Media({
         geometry: this.planeGeometry,
@@ -438,6 +433,7 @@ class App {
         font,
       })
     })
+    this.measureRibbon()
   }
   onTouchDown(e) {
     this.isDown = true
@@ -452,15 +448,18 @@ class App {
     this.moved = Math.abs(this.start - x)
     const distance = (this.start - x) * (this.scrollSpeed * 0.025)
     this.scroll.target = this.scroll.position + distance
+    this.clamp()
   }
   onTouchUp(e) {
     const wasDown = this.isDown
+    const wasDrag = this.moved > 8
     this.isDown = false
-    this.onCheck()
+    // Only a drag needs settling; a click shouldn't shift what it just opened.
+    if (wasDrag) this.onCheck()
 
     // A press that never became a drag is a click. Open whichever card sits
     // nearest the pointer, so the gallery behaves like a list of doors.
-    if (!wasDown || !this.onItemClick || this.moved > 8) return
+    if (!wasDown || !this.onItemClick || wasDrag) return
     const upX = e?.changedTouches ? e.changedTouches[0].clientX : e?.clientX
     const upY = e?.changedTouches ? e.changedTouches[0].clientY : e?.clientY
     if (upX == null) return
@@ -485,6 +484,7 @@ class App {
   onWheel(e) {
     const delta = e.deltaY || e.wheelDelta || e.detail
     this.scroll.target += (delta > 0 ? this.scrollSpeed : -this.scrollSpeed) * 0.2
+    this.clamp()
     this.onCheckDebounce()
   }
   onKeyDown(e) {
@@ -492,16 +492,19 @@ class App {
       case 'ArrowRight':
         e.preventDefault()
         this.scroll.target += this.scrollSpeed * 5
+        this.clamp()
         this.onCheckDebounce()
         break
       case 'ArrowLeft':
         e.preventDefault()
         this.scroll.target -= this.scrollSpeed * 5
+        this.clamp()
         this.onCheckDebounce()
         break
       case 'Home':
         e.preventDefault()
         this.scroll.target = 0
+        this.clamp()
         this.onCheckDebounce()
         break
       case 'Enter':
@@ -526,12 +529,20 @@ class App {
     }
   }
 
+  // A ribbon that doesn't come round can only be pushed as far as its own two
+  // ends — otherwise you'd drag the last workspace off into the dark.
+  clamp() {
+    if (this.loop || !this.bounds) return
+    this.scroll.target = Math.min(this.bounds.max, Math.max(this.bounds.min, this.scroll.target))
+  }
+  // Settle on a card rather than between two. Measured from where the cards
+  // actually sit, which isn't always a whole number of cards from the middle.
   onCheck() {
-    if (!this.medias || !this.medias[0]) return
-    const width = this.medias[0].width
-    const itemIndex = Math.round(Math.abs(this.scroll.target) / width)
-    const item = width * itemIndex
-    this.scroll.target = this.scroll.target < 0 ? -item : item
+    const first = this.medias?.[0]
+    if (!first) return
+    const steps = Math.round((this.scroll.target - first.x) / first.width)
+    this.scroll.target = first.x + steps * first.width
+    this.clamp()
   }
   onResize() {
     this.screen = {
@@ -547,11 +558,51 @@ class App {
     if (this.medias) {
       this.medias.forEach((media) => media.onResize({ screen: this.screen, viewport: this.viewport }))
     }
+    this.measureRibbon()
+  }
+  // Only a ribbon long enough to run off both sides of the frame has anything
+  // to come round with. A shorter one — a drawer holding two or three
+  // workspaces — just slides between its first card and its last.
+  measureRibbon() {
+    const first = this.medias?.[0]
+    if (!first) {
+      this.loop = false
+      this.bounds = null
+      return
+    }
+    // A whole card of slack, so the point a card comes round at stays well off
+    // the edge of the frame instead of popping into view.
+    this.loop = first.widthTotal > this.viewport.width + first.plane.scale.x * 2
+    if (!this.loop && this.medias.length % 2 === 0) {
+      // A ribbon that doesn't come round is a group, and a group should sit in
+      // the middle of the frame. Cards are laid out with one of them dead
+      // centre, which for an even number leaves all the emptiness on one side.
+      const nudge = first.width / 2
+      this.medias.forEach((m) => {
+        m.x += nudge
+      })
+    }
+    // Three ways a drawer can sit: long enough to come round, too short for
+    // that but wider than the frame — so it slides between its two ends — or
+    // small enough to see all at once, which is nothing to push at all.
+    this.bounds =
+      !this.loop && first.widthTotal <= this.viewport.width
+        ? { min: 0, max: 0 }
+        : { min: first.x, max: this.medias[this.medias.length - 1].x }
+    this.clamp()
+    if (!this.loop) {
+      // A ribbon that has just stopped looping — the window widened until the
+      // cards no longer fill it — can be parked a long way from its ends. Bring
+      // it home here rather than letting it sail back across the frame.
+      const { min, max } = this.bounds
+      this.scroll.current = Math.min(max, Math.max(min, this.scroll.current))
+      this.scroll.last = this.scroll.current
+    }
   }
   update() {
     this.scroll.current = lerp(this.scroll.current, this.scroll.target, this.scroll.ease)
     if (this.medias) {
-      this.medias.forEach((media) => media.update(this.scroll))
+      this.medias.forEach((media) => media.update(this.scroll, this.loop))
     }
     this.renderer.render({ scene: this.scene, camera: this.camera })
     this.scroll.last = this.scroll.current

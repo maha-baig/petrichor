@@ -196,7 +196,9 @@ export default function Workspaces({ onOpen, onNew }) {
             />
           </div>
           <p className="text-center text-xs text-muted">
-            Drag to browse · click a card to open it · arrow keys and Enter work too
+            {items.length > 1
+              ? 'Drag to browse · click a card to open it · arrow keys and Enter work too'
+              : 'Click the card to open it · Enter works too'}
           </p>
 
           {/* Keeping and letting go. The gallery is for looking; this is for
