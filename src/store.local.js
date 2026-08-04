@@ -1,11 +1,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
-//  Where the work is kept.
+//  The local backend: IndexedDB, in the poet's own browser.
 //
-//  Today this is IndexedDB in the poet's own browser — no account, no network,
-//  works offline, holds base64 images without complaint. Every call is async and
-//  every workspace is a whole document, which is exactly the shape a Supabase
-//  table + storage bucket will take later. To move to Supabase, reimplement the
-//  six functions at the bottom; nothing that calls them has to change.
+//  No account, no network, works offline, holds base64 images without
+//  complaint. Used when Supabase isn't configured, and as the drawer that
+//  "bring my local work into my account" empties on first sign-in.
+//
+//  Its twin is store.remote.js; store.js chooses between them.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const DB_NAME = 'petrichor'

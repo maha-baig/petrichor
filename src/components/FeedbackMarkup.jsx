@@ -123,7 +123,8 @@ export default function FeedbackMarkup() {
       {/* Toolbar */}
       <div
         data-feedback-ui
-        className="fixed left-1/2 top-3 z-[9999] flex -translate-x-1/2 items-center gap-2 rounded-full px-2 py-1.5 font-grotesk text-xs shadow-lg"
+        // bottom-left: the top bar sat on top of the navbar and swallowed its links
+        className="fixed bottom-4 left-4 z-[9999] flex items-center gap-2 rounded-full px-2 py-1.5 font-grotesk text-xs shadow-lg"
         style={chip}
       >
         <button

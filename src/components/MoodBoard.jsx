@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { readMoodboard, illustrate } from '../api.js'
 import PoemOverlay from './PoemOverlay.jsx'
 import Masonry from './Masonry.jsx'
+import { useCapabilities } from '../useCapabilities.js'
 
 // Downscale any image file/blob to a modest JPEG data URL (keeps payloads small).
 // Resolves { src, aspect } — the masonry board needs the ratio to lay tiles out.
@@ -97,6 +98,13 @@ export default function MoodBoard({
   const fileRef = useRef(null)
   const nextId = useRef(0)
 
+  // Reading the board and generating an image need llava (via Ollama) and
+  // ComfyUI. Those exist on the poet's own machine but not on the hosted
+  // build, so we ask the server what it can do rather than sniffing the URL —
+  // that stays right when Petrichor runs on a LAN address or a custom host.
+  const caps = useCapabilities()
+  const aiAvailable = caps ? caps.moodboardVision && caps.imageGeneration : true
+
   // The plain data URLs — what the vision model and the palette extractor want.
   const images = useMemo(() => tiles.map((t) => t.img), [tiles])
 
@@ -172,11 +180,14 @@ export default function MoodBoard({
   return (
     <div className="mt-12 border-t border-line pt-8">
       <h3 className="font-grotesk text-lg font-extrabold tracking-tight text-body">
-        Mood board → image
+        {aiAvailable ? 'Mood board → image' : 'Mood board'}
       </h3>
       <p className="mt-1 max-w-2xl text-sm text-muted">
-        Gather images in Cosmos, then <b className="text-body">paste them here</b> (⌘V) or drop
-        them in. The model reads the whole board and generates a new image in its spirit.
+        Gather images in Cosmos, then <b className="text-body">paste them here</b> (⌘V) or drop them
+        in.{' '}
+        {aiAvailable
+          ? 'The model reads the whole board and generates a new image in its spirit.'
+          : 'The board and its palette work here; reading the board and generating an image need the local models, so they run when Petrichor is on your own machine.'}
       </p>
 
       {/* Drop / paste zone */}
@@ -236,13 +247,21 @@ export default function MoodBoard({
             </div>
           )}
 
-          <button
-            onClick={readBoard}
-            disabled={phase === 'reading'}
-            className="mt-5 rounded-full bg-fuchsia px-6 py-2.5 font-grotesk font-bold text-white transition-transform hover:scale-[1.02] disabled:opacity-60"
-          >
-            {phase === 'reading' ? 'Reading the board…' : 'Read the board'}
-          </button>
+          {aiAvailable ? (
+            <button
+              onClick={readBoard}
+              disabled={phase === 'reading'}
+              className="mt-5 rounded-full bg-fuchsia px-6 py-2.5 font-grotesk font-bold text-white transition-transform hover:scale-[1.02] disabled:opacity-60"
+            >
+              {phase === 'reading' ? 'Reading the board…' : 'Read the board'}
+            </button>
+          ) : (
+            <p className="mt-5 rounded-sm border border-line bg-card/50 px-4 py-3 text-sm text-muted">
+              <b className="text-body">Reading the board runs locally.</b> It uses a vision model and
+              a local image generator, which this hosted version can't reach — run Petrichor on your
+              own machine for that step.
+            </p>
+          )}
         </>
       )}
 
