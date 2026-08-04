@@ -144,13 +144,6 @@ export default function App() {
                 )}
               />
 
-              <footer className="mt-20 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-line pt-6 text-sm text-muted">
-                <span className="font-serif italic text-body">Verse</span>
-                <span>·</span>
-                <span>a companion, never the author</span>
-                <span>·</span>
-                <span className="font-grotesk text-xs tracking-[0.04em]">verse.mahabaig.com</span>
-              </footer>
             </div>
       </div>
   )
