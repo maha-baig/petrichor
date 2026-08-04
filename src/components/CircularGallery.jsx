@@ -35,21 +35,65 @@ function getFontSize(font) {
   return match ? parseInt(match[1], 10) : 30
 }
 
-function createTextTexture(gl, text, font = 'bold 30px monospace', color = 'black') {
+// Trim a line until it fits, and mark the cut.
+function ellipsize(ctx, line, maxWidth) {
+  if (ctx.measureText(line).width <= maxWidth) return line
+  let cut = line
+  while (cut.length > 1 && ctx.measureText(`${cut}…`).width > maxWidth) {
+    cut = cut.slice(0, -1)
+  }
+  return `${cut.replace(/[\s,.;:—-]+$/, '')}…`
+}
+
+// The labels here are whole prompts, not the one-word captions the original
+// gallery assumed, so the canvas is a fixed box the text is wrapped and cut
+// into. Letting it grow with the text is what sent the titles sprawling across
+// their neighbours.
+function createTextTexture(gl, text, font = 'bold 30px monospace', color = 'black', maxLines = 2) {
   const canvas = document.createElement('canvas')
   const context = canvas.getContext('2d')
+  const fontSize = getFontSize(font)
+  const boxWidth = fontSize * 15
+  const lineHeight = Math.round(fontSize * 1.3)
   context.font = font
-  const metrics = context.measureText(text)
-  const textWidth = Math.ceil(metrics.width)
-  const textHeight = Math.ceil(getFontSize(font) * 1.2)
-  canvas.width = textWidth + 20
-  canvas.height = textHeight + 20
+
+  const words = String(text ?? '').trim().split(/\s+/).filter(Boolean)
+  const lines = []
+  let cur = ''
+  let overflow = false
+  for (const word of words) {
+    const test = cur ? `${cur} ${word}` : word
+    if (!cur || context.measureText(test).width <= boxWidth) {
+      cur = test
+      continue
+    }
+    if (lines.length === maxLines - 1) {
+      overflow = true
+      break
+    }
+    lines.push(cur)
+    cur = word
+  }
+  if (cur) lines.push(cur)
+  if (!lines.length) lines.push('untitled')
+  if (overflow) lines[lines.length - 1] += '…'
+
+  canvas.width = Math.ceil(boxWidth + fontSize)
+  canvas.height = lines.length * lineHeight + Math.ceil(fontSize * 0.6)
   context.font = font
   context.fillStyle = color
   context.textBaseline = 'middle'
   context.textAlign = 'center'
   context.clearRect(0, 0, canvas.width, canvas.height)
-  context.fillText(text, canvas.width / 2, canvas.height / 2)
+  const top = (canvas.height - lines.length * lineHeight) / 2
+  lines.forEach((line, i) => {
+    context.fillText(
+      ellipsize(context, line, boxWidth),
+      canvas.width / 2,
+      top + lineHeight * (i + 0.5),
+    )
+  })
+
   const texture = new Texture(gl, { generateMipmaps: false })
   texture.image = canvas
   return { texture, width: canvas.width, height: canvas.height }
@@ -100,12 +144,21 @@ class Title {
       transparent: true,
     })
     this.mesh = new Mesh(this.gl, { geometry, program })
-    const aspect = width / height
-    const textHeight = this.plane.scale.y * 0.15
-    const textWidth = textHeight * aspect
-    this.mesh.scale.set(textWidth, textHeight, 1)
-    this.mesh.position.y = -this.plane.scale.y * 0.5 - textHeight * 0.5 - 0.05
+    this.aspect = width / height
     this.mesh.setParent(this.plane)
+    this.layout()
+  }
+  // The label hangs off the card, so it inherits the card's scale — which is
+  // taller than it is wide. Dividing that back out keeps the type its own
+  // shape, and pins the label to the card's width so it can't run into the
+  // card beside it.
+  layout() {
+    const sx = this.plane.scale.x || 1
+    const sy = this.plane.scale.y || 1
+    const width = sx * 0.92
+    const height = width / this.aspect
+    this.mesh.scale.set(width / sx, height / sy, 1)
+    this.mesh.position.y = -0.5 - height / (2 * sy) - 0.05
   }
 }
 
@@ -230,21 +283,37 @@ class Media {
       font: this.font,
     })
   }
-  update(scroll, direction) {
-    this.plane.position.x = this.x - scroll.current - this.extra
+  update(scroll) {
+    // The ribbon loops by moving a card a whole ribbon-length at a time. Wrap
+    // on where the card has ended up rather than on which way the last drag
+    // went: every card then sits within half a ribbon of the middle however it
+    // got there — including across a resize part-way through a browse, which
+    // used to leave a card-shaped hole that only more dragging would close.
+    let x = this.x - scroll.current - this.extra
+    if (Math.abs(x) > this.widthTotal / 2) {
+      const shift = Math.round(x / this.widthTotal) * this.widthTotal
+      this.extra += shift
+      x -= shift
+    }
+    this.plane.position.x = x
 
-    const x = this.plane.position.x
     const H = this.viewport.width / 2
 
     if (this.bend === 0) {
       this.plane.position.y = 0
       this.plane.rotation.z = 0
     } else {
-      const B_abs = Math.abs(this.bend)
+      // `bend` is a drop measured across a frame about six cards wide. Cards
+      // keep their size whatever the screen, so on a phone that same drop would
+      // stand the neighbours on their heads — scale it to the frame instead.
+      const B_abs = Math.abs(this.bend) * (this.viewport.width / this.plane.scale.x / 6)
       const R = (H * H + B_abs * B_abs) / (2 * B_abs)
       const effectiveX = Math.min(Math.abs(x), H)
 
-      const arc = R - Math.sqrt(R * R - effectiveX * effectiveX)
+      // Hang the curve around the middle of the frame rather than from its top,
+      // or the cards at the ends drop far enough to take their labels off the
+      // bottom of the gallery.
+      const arc = R - Math.sqrt(R * R - effectiveX * effectiveX) - B_abs / 2
       if (this.bend > 0) {
         this.plane.position.y = -arc
         this.plane.rotation.z = -Math.sign(x) * Math.asin(effectiveX / R)
@@ -257,21 +326,13 @@ class Media {
     this.speed = scroll.current - scroll.last
     this.program.uniforms.uTime.value += 0.04
     this.program.uniforms.uSpeed.value = this.speed
-
-    const planeOffset = this.plane.scale.x / 2
-    const viewportOffset = this.viewport.width / 2
-    this.isBefore = this.plane.position.x + planeOffset < -viewportOffset
-    this.isAfter = this.plane.position.x - planeOffset > viewportOffset
-    if (direction === 'right' && this.isBefore) {
-      this.extra -= this.widthTotal
-      this.isBefore = this.isAfter = false
-    }
-    if (direction === 'left' && this.isAfter) {
-      this.extra += this.widthTotal
-      this.isBefore = this.isAfter = false
-    }
   }
   onResize({ screen, viewport } = {}) {
+    // Whatever wrapping happened at the old size was measured against the old
+    // frame. Keeping it is how the ribbon ends up with a card-shaped hole in it
+    // — the gallery is often built a moment before the page settles on its
+    // final width.
+    this.extra = 0
     if (screen) this.screen = screen
     if (viewport) {
       this.viewport = viewport
@@ -286,10 +347,16 @@ class Media {
     this.plane.scale.y = (this.viewport.height * (900 * this.scale)) / this.screen.height
     this.plane.scale.x = (this.viewport.width * (700 * this.scale)) / this.screen.width
     this.plane.program.uniforms.uPlaneSizes.value = [this.plane.scale.x, this.plane.scale.y]
-    this.padding = 2
+    // The card just changed size; the label hanging under it has to follow.
+    this.title?.layout()
+    // Proportional, so the ribbon keeps its rhythm on a phone as on a desk.
+    this.padding = this.plane.scale.x * 0.26
     this.width = this.plane.scale.x + this.padding
     this.widthTotal = this.width * this.length
-    this.x = this.width * this.index
+    // Lay the ribbon out around the middle rather than starting at it, so the
+    // frame is full on both sides before anyone has dragged anything. Still a
+    // whole number of cards from zero, so the snap points don't move.
+    this.x = this.width * (this.index - Math.floor(this.length / 2))
   }
 }
 
@@ -346,7 +413,13 @@ class App {
   }
   createMedias(items, bend = 1, textColor, borderRadius, font) {
     const galleryItems = items && items.length ? items : []
-    this.mediasImages = galleryItems.concat(galleryItems)
+    // The ribbon loops by drawing the set more than once. Two passes is plenty
+    // for a full drawer, but one or two workspaces would leave it mostly empty
+    // — so repeat until there are enough cards to fill the turn and to keep the
+    // point a card wraps at safely off-screen. Kept even, so the card that
+    // greets you is still the first workspace.
+    const passes = galleryItems.length ? 2 * Math.max(1, Math.ceil(4 / galleryItems.length)) : 0
+    this.mediasImages = Array.from({ length: passes }, () => galleryItems).flat()
     this.medias = this.mediasImages.map((data, index) => {
       return new Media({
         geometry: this.planeGeometry,
@@ -477,9 +550,8 @@ class App {
   }
   update() {
     this.scroll.current = lerp(this.scroll.current, this.scroll.target, this.scroll.ease)
-    const direction = this.scroll.current > this.scroll.last ? 'right' : 'left'
     if (this.medias) {
-      this.medias.forEach((media) => media.update(this.scroll, direction))
+      this.medias.forEach((media) => media.update(this.scroll))
     }
     this.renderer.render({ scene: this.scene, camera: this.camera })
     this.scroll.last = this.scroll.current
@@ -506,8 +578,17 @@ class App {
     window.addEventListener('touchend', this.boundOnTouchUp)
 
     this.container?.addEventListener('keydown', this.boundOnKeyDown)
+
+    // The window isn't the only thing that changes shape — the gallery is built
+    // as soon as the workspaces arrive, which can be a beat before the page has
+    // settled on its final width.
+    if (typeof ResizeObserver !== 'undefined') {
+      this.observer = new ResizeObserver(this.boundOnResize)
+      this.observer.observe(this.container)
+    }
   }
   destroy() {
+    this.observer?.disconnect()
     window.cancelAnimationFrame(this.raf)
     window.removeEventListener('resize', this.boundOnResize)
     window.removeEventListener('mousewheel', this.boundOnWheel)
