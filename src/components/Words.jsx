@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { getWords, getMoreWords } from '../api.js'
 import MoodBoard from './MoodBoard.jsx'
 
-// "give me more of these" — same pill as the Cosmos link, quiet until wanted.
+// "give me more of these" — a quiet pill, unassuming until wanted.
 function MoreButton({ onClick, busy, children }) {
   return (
     <button
@@ -34,7 +34,7 @@ function Chip({ children, copyable }) {
           ? 'cursor-copy border-line text-body hover:border-fuchsia hover:text-fuchsia'
           : 'cursor-default border-line font-serif italic text-body')
       }
-      title={copyable ? 'Click to copy for Cosmos' : undefined}
+      title={copyable ? 'Click to copy' : undefined}
     >
       {copied ? 'copied ✓' : children}
     </button>
@@ -95,7 +95,7 @@ export default function Words({ prompt, mood, onBack }) {
   }
 
   const cosmosUrl =
-    'https://www.cosmos.so/search?q=' +
+    'https://www.cosmos.so/explore?q=' +
     encodeURIComponent((data?.searchTerms || []).slice(0, 3).join(' '))
 
   return (
@@ -134,20 +134,21 @@ export default function Words({ prompt, mood, onBack }) {
           </div>
 
           <div>
-            <div className="mb-1 flex items-center justify-between gap-3">
-              <h3 className="font-grotesk text-lg font-extrabold tracking-tight text-body">
-                Search terms for Cosmos
-              </h3>
+            <h3 className="mb-1 font-grotesk text-lg font-extrabold tracking-tight text-body">
+              Search terms
+            </h3>
+            <p className="mb-3 text-sm text-muted">
+              For the mood board below. Click any to copy — or take one hunting in{' '}
               <a
                 href={cosmosUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="shrink-0 rounded-full border border-line px-3 py-1 text-xs text-body hover:border-fuchsia hover:text-fuchsia"
+                className="underline decoration-line underline-offset-2 hover:text-fuchsia"
               >
-                Open Cosmos ↗
+                Cosmos
               </a>
-            </div>
-            <p className="mb-3 text-sm text-muted">Click any to copy, then paste into Cosmos.</p>
+              .
+            </p>
             <div className="flex flex-wrap gap-2">
               {data.searchTerms?.map((w, i) => (
                 <span key={i} className={i >= firstBatch.current.searchTerms ? 'animate-rise' : ''}>
@@ -156,7 +157,7 @@ export default function Words({ prompt, mood, onBack }) {
               ))}
             </div>
             <MoreButton onClick={() => askMore('searchTerms')} busy={asking === 'searchTerms'}>
-              + more terms to search in Cosmos
+              + more search terms
             </MoreButton>
           </div>
 

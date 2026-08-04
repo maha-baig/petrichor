@@ -194,7 +194,7 @@ function wordLines(ws) {
     out.push('Words to write with', ...ws.words.evocative.map((w) => `  ${w}`), '')
   }
   if (ws.words?.searchTerms?.length) {
-    out.push('Search terms for Cosmos', ...ws.words.searchTerms.map((w) => `  ${w}`), '')
+    out.push('Search terms', ...ws.words.searchTerms.map((w) => `  ${w}`), '')
   }
   return out.join('\n')
 }

@@ -45,10 +45,11 @@ preserved exactly, with control over placement, ink colour, size, leading, and a
 ### Prompts → words → mood board
 
 The path from the home page: a prompt, then **evocative words** for you and **concrete search
-terms** for [Cosmos](https://www.cosmos.so) (which has no API — so you hunt, and the app holds
-everything around the hunt). Paste the references you gathered and a vision model reads the whole
-board as a set, then generates a new image in its spirit — with the board's real palette locked
-into the prompt.
+terms** to gather images with. Tap a term and the board fills with candidates you choose between —
+every one carrying its creator and licence, so what you keep is yours to use. You can still hunt
+anywhere you like ([Cosmos](https://www.cosmos.so) is one link away) and drop what you find in.
+Then a vision model reads the whole board as a set and generates a new image in its spirit — with
+the board's real palette locked into the prompt.
 
 ---
 
@@ -56,8 +57,8 @@ into the prompt.
 
 ```
 feeling / prompt
-   ↓  text model       →  prompts · evocative words · Cosmos search terms · palette
-   ↓  you, in Cosmos   →  gather references
+   ↓  text model       →  prompts · evocative words · search terms · palette
+   ↓  image search     →  licensed candidates; you pick (or bring your own)
    ↓  vision model     →  reads the mood board as a set, writes an image prompt
    ↓  diffusion        →  a new image in the board's spirit
    ↓  canvas           →  your poem, set in type, exported

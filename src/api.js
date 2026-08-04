@@ -29,6 +29,6 @@ export const readMoodboard = ({ images, feeling, colors }) =>
 export const illustrate = ({ prompt, negative }) => post('/api/illustrate', { prompt, negative })
 
 // Candidates for the mood board, from one of the search terms. source:
-// 'openverse' | 'cosmos' | 'pexels' | 'unsplash' — omit for the server's default.
+// 'openverse' | 'pexels' | 'unsplash' — omit for the server's default.
 export const searchImages = ({ term, source, count }) =>
   post('/api/images', { term, source, count })

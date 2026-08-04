@@ -212,7 +212,7 @@ app.post('/api/prompts', (req, res) => {
   runEngine(res, buildPromptEngineMessages({ mood, echoes, count }), 1.0)
 })
 
-// 2) Word engine — evocative words + Cosmos search terms + a starting palette.
+// 2) Word engine — evocative words + image search terms + a starting palette.
 app.post('/api/words', (req, res) => {
   const { prompt, mood = 'melancholy' } = req.body || {}
   if (!prompt) return res.status(400).json({ error: 'A prompt is required.' })
@@ -235,7 +235,7 @@ function freshOnly(items, exclude, key = (x) => x) {
   return out
 }
 
-// 2b) More of one currency — a second helping of Cosmos terms or writing words.
+// 2b) More of one currency — a second helping of search terms or writing words.
 app.post('/api/words/more', async (req, res) => {
   const { prompt, mood = 'melancholy', want = 'searchTerms', count = 8, exclude = [] } = req.body || {}
   if (!prompt) return res.status(400).json({ error: 'A prompt is required.' })

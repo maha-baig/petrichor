@@ -3,19 +3,20 @@ import crypto from 'node:crypto'
 /**
  * Gathering images for the mood board.
  *
- * The poet used to hunt in Cosmos and paste the results in by hand. These
- * sources do the hunting from the search terms the word engine already wrote,
- * and hand back candidates she still has to choose between — the choosing is
+ * These sources hunt from the search terms the word engine already wrote, and
+ * hand back candidates the poet still has to choose between — the choosing is
  * the part that makes a board hers, so it stays.
+ *
+ * Every source here licenses what it returns: each candidate arrives with its
+ * creator and licence attached. Cosmos is deliberately not one of them. It
+ * curates other people's copyrighted work without granting any licence, and
+ * its images carry no author you could credit even if you wanted to — so the
+ * app points you at Cosmos to go looking yourself, and never fetches from it.
  *
  * Sources are pluggable the same way the text providers are (see MUSE_PROVIDER
  * in app.js). All of them run server-side, so they work on the deployed site,
  * not just on her machine.
  */
-
-// Cosmos serves its markup to browsers; without a browser UA it answers 403.
-const BROWSER_UA =
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
 
 // ── Signed proxy ────────────────────────────────────────────────────
 // Every candidate has to come back through us: the browser can't fetch
@@ -46,11 +47,22 @@ const proxied = (url) => `/api/images/proxy?url=${encodeURIComponent(url)}&sig=$
 
 // ── Sources ─────────────────────────────────────────────────────────
 
+// Most Openverse licences read well as "CC " + the code; these two don't.
+const LICENSE_LABELS = { cc0: 'CC0', pdm: 'Public domain' }
+const licenseLabel = (code) =>
+  code ? LICENSE_LABELS[code] || `CC ${String(code).toUpperCase()}` : null
+
 async function openverse(term, count) {
   const u = new URL('https://api.openverse.org/v1/images/')
   u.searchParams.set('q', term)
   u.searchParams.set('page_size', String(count))
   u.searchParams.set('mature', 'false')
+  // Only work that may be used commercially AND altered. Unfiltered, most of
+  // what comes back is NC or ND — and ND is flatly at odds with an app whose
+  // point is making something new out of what you gathered. This leaves BY,
+  // BY-SA and CC0: attribution is the cost, and BY-SA asks that anything
+  // derived carry the same licence on.
+  u.searchParams.set('license_type', 'commercial,modification')
 
   const r = await fetch(u, { headers: { 'User-Agent': 'petrichor/0.1' } })
   if (!r.ok) throw new Error(`Openverse is not answering (${r.status}).`)
@@ -62,40 +74,8 @@ async function openverse(term, count) {
     full: proxied(x.url),
     aspect: x.width && x.height ? x.width / x.height : null,
     credit: x.creator || null,
-    license: x.license ? `CC ${String(x.license).toUpperCase()}` : null,
+    license: licenseLabel(x.license),
     link: x.foreign_landing_url || null,
-  }))
-}
-
-// Cosmos has no API. Its explore page is server-rendered though, so the
-// image ids are sitting in the HTML — /search?q= 307s to /explore?q=.
-// This is unsanctioned and will break the day they change their markup;
-// it fails soft (empty list, clear message) rather than taking the page down.
-async function cosmos(term, count) {
-  const url = `https://www.cosmos.so/explore?q=${encodeURIComponent(term)}`
-  const r = await fetch(url, {
-    headers: { 'User-Agent': BROWSER_UA, Accept: 'text/html,application/xhtml+xml' },
-    redirect: 'follow',
-  })
-  if (!r.ok) throw new Error(`Cosmos answered ${r.status}. It may be blocking the server.`)
-
-  const html = await r.text()
-  const ids = [
-    ...new Set(
-      [...html.matchAll(/cdn\.cosmos\.so\/([0-9a-f-]{32,40})/gi)].map((m) => m[1].toLowerCase()),
-    ),
-  ].slice(0, count)
-
-  if (!ids.length) throw new Error('Cosmos returned a page with no images in it.')
-
-  return ids.map((id) => ({
-    id: `cs-${id}`,
-    thumb: proxied(`https://cdn.cosmos.so/${id}?format=webp&w=400`),
-    full: proxied(`https://cdn.cosmos.so/${id}?format=webp&w=1000`),
-    aspect: null, // unknown until the browser loads it; MoodBoard measures it anyway
-    credit: null,
-    license: null,
-    link: `https://www.cosmos.so/explore?q=${encodeURIComponent(term)}`,
   }))
 }
 
@@ -143,13 +123,13 @@ async function unsplash(term, count) {
   }))
 }
 
-const SOURCES = { openverse, cosmos, pexels, unsplash }
+const SOURCES = { openverse, pexels, unsplash }
 
 // Which sources this deployment can actually serve. Openverse needs no key,
 // so there is always at least one — that's what makes the feature work on
 // Vercel without her setting anything up.
 export function availableSources() {
-  const wanted = (process.env.IMAGE_SOURCES || 'openverse,cosmos')
+  const wanted = (process.env.IMAGE_SOURCES || 'openverse,pexels,unsplash')
     .split(',')
     .map((s) => s.trim().toLowerCase())
     .filter((s) => SOURCES[s])

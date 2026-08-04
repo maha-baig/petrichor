@@ -6,7 +6,6 @@ import { useCapabilities } from '../useCapabilities.js'
 
 const SOURCE_LABELS = {
   openverse: 'Openverse',
-  cosmos: 'Cosmos',
   pexels: 'Pexels',
   unsplash: 'Unsplash',
 }
@@ -252,40 +251,20 @@ export default function MoodBoard({
         {aiAvailable ? 'Mood board → image' : 'Mood board'}
       </h3>
       <p className="mt-1 max-w-2xl text-sm text-muted">
-        Gather images in Cosmos, then <b className="text-body">paste them here</b> (⌘V) or drop them
-        in — or {canGather ? 'tap a search term below and pick from what comes back' : 'add them by hand'}.{' '}
+        {canGather
+          ? 'Tap one of your search terms and pick from what comes back — every image arrives with its creator and licence. Or bring your own from anywhere.'
+          : 'Paste (⌘V) or drop in the images you gathered.'}{' '}
         {aiAvailable
           ? 'The model reads the whole board and generates a new image in its spirit.'
           : 'The board and its palette work here; reading the board and generating an image need the local models, so they run when Petrichor is on your own machine.'}
       </p>
-
-      {/* Drop / paste zone */}
-      <div
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={(e) => {
-          e.preventDefault()
-          addFiles(e.dataTransfer.files)
-        }}
-        onClick={() => fileRef.current?.click()}
-        className="mt-4 cursor-pointer rounded-sm border border-dashed border-line bg-card/50 p-6 text-center text-sm text-muted transition-colors hover:border-fuchsia"
-      >
-        Paste (⌘V), drop, or click to add images
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          multiple
-          hidden
-          onChange={(e) => addFiles(e.target.files)}
-        />
-      </div>
 
       {/* Gather — the search terms, fetched for you. You still pick. */}
       {canGather && (
         <div className="mt-5">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
             <span className="font-grotesk text-sm font-bold uppercase tracking-[0.08em] text-muted">
-              Or gather from a term
+              Search for images
             </span>
             {sources.length > 1 && (
               <select
@@ -345,6 +324,13 @@ export default function MoodBoard({
                       loading="lazy"
                       className="h-full w-full object-cover"
                     />
+                    {/* The licence rides on the tile — BY-SA asks something of
+                        whatever you make next, so it shouldn't hide in a tooltip */}
+                    {c.license && (
+                      <span className="absolute inset-x-0 bottom-0 bg-ink/70 px-1 py-0.5 text-[0.6rem] leading-tight text-paper">
+                        {c.license}
+                      </span>
+                    )}
                     {taken.has(c.id) && (
                       <span className="absolute inset-0 grid place-items-center bg-ink/50 text-xs text-paper">
                         added
@@ -355,7 +341,8 @@ export default function MoodBoard({
               </div>
               {candidates.some((c) => c.credit) && (
                 <p className="mt-2 text-xs text-muted">
-                  Hover for the photographer and licence — credit them if the poem goes out.
+                  All of these allow commercial use and edits. Hover for the photographer — credit
+                  them if the poem goes out.
                 </p>
               )}
             </div>
@@ -364,6 +351,27 @@ export default function MoodBoard({
           {gatherError && <p className="mt-3 text-sm text-fuchsia">{gatherError}</p>}
         </div>
       )}
+
+      {/* Drop / paste zone — for anything you found yourself, Cosmos included */}
+      <div
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          e.preventDefault()
+          addFiles(e.dataTransfer.files)
+        }}
+        onClick={() => fileRef.current?.click()}
+        className="mt-5 cursor-pointer rounded-sm border border-dashed border-line bg-card/50 p-6 text-center text-sm text-muted transition-colors hover:border-fuchsia"
+      >
+        {canGather ? 'Or bring your own — paste (⌘V), drop, or click' : 'Paste (⌘V), drop, or click to add images'}
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          multiple
+          hidden
+          onChange={(e) => addFiles(e.target.files)}
+        />
+      </div>
 
       {images.length > 0 && (
         <>

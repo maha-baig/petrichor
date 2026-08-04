@@ -48,7 +48,7 @@ Return ONLY valid JSON, no prose around it, in exactly this shape:
  * WORD ENGINE
  * Given a chosen prompt, returns two distinct word sets:
  *   • evocative — for the poet, to spark language (sensory, textured, surprising)
- *   • searchTerms — for Cosmos, concrete visual noun-phrases that return good imagery
+ *   • searchTerms — concrete visual noun-phrases that return good imagery in any image search
  * Also suggests a rough starting palette (named colours) to seed the mood board.
  */
 // A shared clause: the poet already has these on screen, so don't hand them back.
@@ -70,8 +70,8 @@ Hand them raw material in two different currencies, because they serve two diffe
    relish (e.g. "the blue hour", "attenuate", "a bruise healing"). Not a thesaurus of the
    mood — the raw ore of a poem.
 
-2) "searchTerms" — 6–9 SHORT, CONCRETE, VISUAL noun-phrases FOR AN IMAGE SEARCH (the poet will paste
-   these into Cosmos to gather references). These must be literally photographable: "abandoned
+2) "searchTerms" — 6–9 SHORT, CONCRETE, VISUAL noun-phrases FOR AN IMAGE SEARCH (the poet searches
+   these to gather references). These must be literally photographable: "abandoned
    greenhouse", "warm film grain", "wilting bouquet", "empty swimming pool at dusk". No abstractions,
    no emotions — only things a camera could see.
 
@@ -94,7 +94,7 @@ Return ONLY valid JSON, no prose around it, in exactly this shape:
  * MORE-WORDS ENGINE
  * A second helping of one currency only — the poet has read the first batch and
  * wants more ground to walk on.
- *   want: "searchTerms" (more to paste into Cosmos) | "evocative" (more to write with)
+ *   want: "searchTerms" (more to search images with) | "evocative" (more to write with)
  *   exclude: everything already on their screen.
  */
 export function buildMoreWordsMessages({
@@ -107,8 +107,8 @@ export function buildMoreWordsMessages({
   const isSearch = want === 'searchTerms'
 
   const task = isSearch
-    ? `${count} SHORT, CONCRETE, VISUAL noun-phrases FOR AN IMAGE SEARCH — the poet pastes these into
-Cosmos to gather references. Every one must be literally photographable: "abandoned greenhouse",
+    ? `${count} SHORT, CONCRETE, VISUAL noun-phrases FOR AN IMAGE SEARCH — the poet searches these to
+gather references. Every one must be literally photographable: "abandoned greenhouse",
 "warm film grain", "wilting bouquet", "empty swimming pool at dusk". No abstractions, no emotions,
 no feelings — only things a camera could see. Reach for angles the first batch missed: different
 weather, different hour, different scale, interiors as well as landscapes, objects as well as places.`
