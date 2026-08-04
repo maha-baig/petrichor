@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react'
-import { listWorkspaces, deleteWorkspace, workspaceTitle } from '../store.js'
+import {
+  listWorkspaces,
+  deleteWorkspace,
+  workspaceTitle,
+  localCount,
+  importLocalWorkspaces,
+} from '../store.js'
 import { downloadWorkspaceZip } from '../download.js'
+import { isSupabaseConfigured } from '../lib/supabase.js'
+import SignIn, { useSession, signOut } from '../auth.jsx'
 import { Reveal } from '../motion.jsx'
 
 function when(iso) {
@@ -44,14 +52,46 @@ export default function Workspaces({ onOpen, onNew }) {
   const [confirming, setConfirming] = useState(null)
   const [busy, setBusy] = useState(null)
   const [error, setError] = useState(null)
+  const [waiting, setWaiting] = useState(0) // local workspaces not yet brought across
+  const [imported, setImported] = useState(null)
+
+  const session = useSession()
+  const needsSignIn = isSupabaseConfigured && session === null
 
   async function refresh() {
-    setItems(await listWorkspaces())
+    setError(null)
+    try {
+      setItems(await listWorkspaces())
+      setWaiting(await localCount())
+    } catch (e) {
+      setError(e.message)
+      setItems([])
+    }
   }
 
   useEffect(() => {
+    if (session === undefined) return // still asking who's signed in
+    if (needsSignIn) {
+      setItems([])
+      return
+    }
     refresh()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session])
+
+  async function bringLocalAcross() {
+    setBusy('import')
+    setError(null)
+    try {
+      const moved = await importLocalWorkspaces({ clearAfter: true })
+      setImported(moved)
+      await refresh()
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setBusy(null)
+    }
+  }
 
   async function remove(id) {
     await deleteWorkspace(id)
@@ -88,14 +128,57 @@ export default function Workspaces({ onOpen, onNew }) {
       </Reveal>
       <Reveal as="p" order={2} className="mt-4 max-w-xl text-muted">
         Each prompt you choose keeps its own room — its words, the images you gathered, the poem
-        that came of it. Nothing here leaves your browser.
+        that came of it.{' '}
+        {session
+          ? 'Signed in, so they follow you to any browser.'
+          : needsSignIn
+            ? 'Sign in and they follow you to any browser.'
+            : 'Nothing here leaves your browser.'}
       </Reveal>
+
+      {session && (
+        <p className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted">
+          <span>{session.user.email}</span>
+          <span>·</span>
+          <button onClick={signOut} className="underline hover:text-fuchsia">
+            sign out
+          </button>
+        </p>
+      )}
 
       {error && <p className="mt-4 text-sm text-fuchsia">{error}</p>}
 
-      {items === null && <p className="mt-10 font-serif italic text-muted">Opening the drawer…</p>}
+      {/* Signed out, with Supabase configured: the list is behind the link. */}
+      {needsSignIn && <SignIn />}
 
-      {items?.length === 0 && (
+      {/* Signed in, but work is still sitting in this browser from before. */}
+      {session && waiting > 0 && (
+        <div className="mt-8 flex flex-wrap items-center gap-3 rounded-sm border border-fuchsia/40 bg-card/40 px-4 py-3">
+          <p className="text-sm text-body">
+            {waiting} workspace{waiting === 1 ? '' : 's'} from this browser {waiting === 1 ? 'is' : 'are'}{' '}
+            not in your account yet.
+          </p>
+          <button
+            onClick={bringLocalAcross}
+            disabled={busy === 'import'}
+            className="rounded-full bg-fuchsia px-4 py-1.5 font-grotesk text-xs font-bold text-white disabled:opacity-60"
+          >
+            {busy === 'import' ? 'bringing across…' : 'bring them across'}
+          </button>
+        </div>
+      )}
+
+      {imported > 0 && (
+        <p className="mt-3 text-sm text-muted">
+          Brought {imported} across. They live in your account now.
+        </p>
+      )}
+
+      {!needsSignIn && (items === null || session === undefined) && (
+        <p className="mt-10 font-serif italic text-muted">Opening the drawer…</p>
+      )}
+
+      {!needsSignIn && items?.length === 0 && (
         <div className="mt-10 rounded-sm border border-dashed border-line p-10 text-center">
           <p className="font-serif text-lg italic text-muted">Nothing kept yet.</p>
           <button

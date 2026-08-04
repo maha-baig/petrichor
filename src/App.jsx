@@ -118,7 +118,15 @@ export default function App() {
                       (workspace ? (
                         <Workspace
                           workspace={workspace}
-                          onChange={setWorkspace}
+                          // Saves are async, so one can land after the poet has
+                          // already closed the workspace. Only accept an update
+                          // for the workspace that is still open, or a late save
+                          // would reopen what they just left.
+                          onChange={(next) =>
+                            setWorkspace((cur) =>
+                              cur && next && cur.id === next.id ? next : cur,
+                            )
+                          }
                           onBack={() => setWorkspace(null)}
                         />
                       ) : (

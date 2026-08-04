@@ -56,11 +56,22 @@ function ext(dataUrl) {
   return 'jpg'
 }
 
+// Images stored in Supabase arrive as signed https URLs rather than data URLs;
+// fetch those instead of trying to decode them.
+async function srcToBlob(src) {
+  if (String(src).startsWith('data:')) return dataUrlToBlob(src)
+  const res = await fetch(src)
+  if (!res.ok) throw new Error(`Couldn't fetch an image (${res.status})`)
+  return res.blob()
+}
+
 function loadImage(src) {
   return new Promise((resolve, reject) => {
     const img = new Image()
+    // without this a remote image taints the canvas and toBlob() throws
+    if (!String(src).startsWith('data:')) img.crossOrigin = 'anonymous'
     img.onload = () => resolve(img)
-    img.onerror = reject
+    img.onerror = () => reject(new Error("An image on the board wouldn't load."))
     img.src = src
   })
 }
@@ -217,9 +228,12 @@ export async function downloadWorkspaceZip(ws) {
 
   if (ws.images?.length) {
     const imgs = root.folder('images')
-    ws.images.forEach((im, i) => {
-      imgs.file(`${String(i + 1).padStart(2, '0')}.${ext(im.img)}`, dataUrlToBlob(im.img))
-    })
+    // sequential on purpose: a big board shouldn't open 30 fetches at once
+    for (const [i, im] of ws.images.entries()) {
+      const blob = await srcToBlob(im.img)
+      const suffix = im.path?.split('.').pop() || ext(im.img)
+      imgs.file(`${String(i + 1).padStart(2, '0')}.${suffix}`, blob)
+    }
     // the board as one picture, so the zip is useful without reassembling it
     try {
       const collage = await boardCollage(ws.images)
@@ -230,7 +244,8 @@ export async function downloadWorkspaceZip(ws) {
   }
 
   if (ws.generated?.image) {
-    root.file(`generated.${ext(ws.generated.image)}`, dataUrlToBlob(ws.generated.image))
+    const suffix = ws.generated.path?.split('.').pop() || ext(ws.generated.image)
+    root.file(`generated.${suffix}`, await srcToBlob(ws.generated.image))
     if (ws.generated.prompt) root.file('generated-prompt.txt', ws.generated.prompt + '\n')
   }
 

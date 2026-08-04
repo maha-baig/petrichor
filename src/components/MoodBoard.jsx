@@ -108,6 +108,12 @@ export default function MoodBoard({
   // The plain data URLs — what the vision model and the palette extractor want.
   const images = useMemo(() => tiles.map((t) => t.img), [tiles])
 
+  // Which tiles these are, by content rather than array identity. A parent that
+  // passes `tiles={ws.images || []}` hands us a fresh array on every render, and
+  // keying the palette effect on identity would re-run it every render — each
+  // run reporting a palette, which saves, which re-renders, forever.
+  const tilesKey = useMemo(() => tiles.map((t) => t.id).join(','), [tiles])
+
   async function addFiles(fileList) {
     const files = [...fileList].filter((f) => f.type.startsWith('image/'))
     const added = await Promise.all(files.map((f) => fileToDataUrl(f)))
@@ -136,13 +142,20 @@ export default function MoodBoard({
     return () => window.removeEventListener('paste', onPaste)
   }, [])
 
+  // Re-read the palette when the tiles actually change. Only tell the parent
+  // when the colours are genuinely different — otherwise a no-op save fires on
+  // every mount, and each save re-renders us into another one.
+  const lastPalette = useRef(null)
   useEffect(() => {
     extractPalette(images, (p) => {
       setPalette(p)
+      const key = p.join(',')
+      if (key === lastPalette.current) return
+      lastPalette.current = key
       onPaletteChange?.(p)
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [images])
+  }, [tilesKey])
 
   async function readBoard() {
     setPhase('reading')

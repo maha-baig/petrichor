@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 
 // Both are safe in the browser: the anon key can only do what row-level
-// security allows, and every policy in supabase/schema.sql is "your own rows".
+// security allows, and every policy in supabase/migrations is "your own rows".
 const url = import.meta.env.VITE_SUPABASE_URL
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 

@@ -3,7 +3,7 @@
 //
 //  Rows in `workspaces`, images in the private `moodboards` bucket, and
 //  row-level security doing the real work — the anon key literally cannot ask
-//  for another poet's rows (see supabase/schema.sql).
+//  for another poet's rows (see supabase/migrations).
 //
 //  Two shapes meet here. In the database, an image is { id, path, aspect } and
 //  the file lives in storage. In the app, an image is { id, img, aspect } where
