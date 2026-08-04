@@ -1,0 +1,29 @@
+.masonry-list {
+  position: relative;
+  width: 100%;
+}
+
+.masonry-item {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 6px;
+  will-change: transform, width, height, opacity;
+}
+
+.masonry-item > .masonry-img {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center center;
+  border-radius: 2px;
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.1));
+  box-shadow: 0 10px 50px -10px rgba(0, 0, 0, 0.2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .masonry-item {
+    will-change: auto;
+  }
+}
