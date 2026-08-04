@@ -28,17 +28,42 @@ function roundedRect(ctx, x, y, w, h, r) {
   ctx.closePath()
 }
 
-// Signed in, a gathered picture is a signed storage URL rather than a data URL.
-// Asking for it anonymously is what lets us read the composed card back out of
-// the canvas afterwards; without it the canvas is tainted and unreadable.
-function loadImage(src) {
+function decodeImage(src, anonymous) {
   return new Promise((resolve) => {
     const img = new Image()
-    img.crossOrigin = 'anonymous'
+    if (anonymous) img.crossOrigin = 'anonymous'
     img.onload = () => resolve(img)
     img.onerror = () => resolve(null)
     img.src = src
   })
+}
+
+/**
+ * Signed in, a gathered picture is a signed storage URL rather than a data URL,
+ * and a card is composed by drawing it into a canvas and reading the canvas
+ * back out. That read is only allowed if the pixels are ours.
+ *
+ * So fetch the bytes and draw from a blob: a blob URL is same-origin, and can't
+ * be tainted by a copy the browser cached earlier without cross-origin
+ * permission — which is how a picture shown elsewhere in the app as a plain
+ * <img> could quietly poison the card here.
+ */
+async function loadImage(src) {
+  if (!src) return null
+  if (!src.startsWith('data:') && typeof fetch === 'function') {
+    try {
+      const res = await fetch(src, { mode: 'cors', credentials: 'omit' })
+      if (res.ok) {
+        const url = URL.createObjectURL(await res.blob())
+        const img = await decodeImage(url, false)
+        URL.revokeObjectURL(url) // the decoded picture outlives the URL
+        if (img) return img
+      }
+    } catch {
+      // No cross-origin read allowed; try the picture on its own terms.
+    }
+  }
+  return decodeImage(src, true)
 }
 
 /**
@@ -242,8 +267,11 @@ async function photoCard(src, palette, words, title) {
 
   try {
     return c.toDataURL('image/jpeg', 0.86)
-  } catch {
-    // A picture we're allowed to show but not to read back. Show it plain.
+  } catch (e) {
+    // A picture we're allowed to show but not to read back. Show it plain —
+    // the gallery will crop it to the card, which is worse than the mount but
+    // better than losing it. Said out loud, because it's hard to see why.
+    console.warn('petrichor: could not compose a card for', src, e)
     return src
   }
 }
