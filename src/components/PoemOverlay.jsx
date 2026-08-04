@@ -28,16 +28,40 @@ function loadImageFile(file, max = 1600) {
 export default function PoemOverlay({ imageSrc, standalone = false }) {
   const [src, setSrc] = useState(imageSrc || null)
   const [poem, setPoem] = useState('')
-  const [place, setPlace] = useState('bottom') // top | middle | bottom
   const [align, setAlign] = useState('left') // left | center
   const [font, setFont] = useState('serif') // serif | sans
   const [ink, setInk] = useState('#f4f1ea') // any hex colour
   const [scrim, setScrim] = useState(true)
   const [size, setSize] = useState(4) // % of image height
   const [leading, setLeading] = useState(1.4) // line spacing multiplier
+
+  // Where the poem sits, as a fraction of the image (0–1) so it survives a
+  // change of image or export size. This is the anchor of the text block:
+  // its left edge when ranged left, its centre when centred.
+  const [pos, setPos] = useState({ x: 0.07, y: 0.72 })
+  const [dragging, setDragging] = useState(false)
+
+  // Darkroom controls. 1 = untouched, so the defaults draw the original.
+  const [adj, setAdj] = useState({
+    brightness: 1,
+    contrast: 1,
+    saturate: 1,
+    hue: 0, // degrees
+    sepia: 0,
+    blur: 0, // px at export scale
+  })
+  const adjusted =
+    adj.brightness !== 1 ||
+    adj.contrast !== 1 ||
+    adj.saturate !== 1 ||
+    adj.hue !== 0 ||
+    adj.sepia !== 0 ||
+    adj.blur !== 0
+
   const canvasRef = useRef(null)
   const imgRef = useRef(null)
   const fileRef = useRef(null)
+  const dragRef = useRef(null) // grab offset while dragging
 
   // keep in sync when a parent supplies/updates the image
   useEffect(() => {
@@ -77,7 +101,51 @@ export default function PoemOverlay({ imageSrc, standalone = false }) {
   }, [src])
 
   // redraw on any change
-  useEffect(draw, [poem, place, align, font, ink, scrim, size, leading, src])
+  useEffect(draw, [poem, pos, align, font, ink, scrim, size, leading, src, adj])
+
+  // Lay the poem out for a given canvas: the wrapped lines and the box they
+  // occupy. draw() paints it; the drag handler uses the box to know what was
+  // grabbed, so both agree on where the text is.
+  function layout(ctx, W, H) {
+    const pad = W * 0.07
+    const fontPx = Math.max(8, Math.round((size / 100) * H))
+    const lineH = fontPx * leading
+    const family =
+      font === 'serif' ? '"Iowan Old Style", Georgia, serif' : 'Helvetica, Arial, sans-serif'
+    ctx.font = `${font === 'serif' ? 'italic ' : ''}${fontPx}px ${family}`
+
+    // Wrap to whatever room is left to the right of the anchor, so dragging
+    // toward an edge reflows rather than running off the canvas.
+    const maxW =
+      align === 'center'
+        ? Math.min(pos.x, 1 - pos.x) * 2 * W - pad * 0.5
+        : W - pos.x * W - pad * 0.5
+
+    const lines = []
+    for (const raw of poem.split('\n')) {
+      if (raw.trim() === '') {
+        lines.push('')
+        continue
+      }
+      const indent = (raw.match(/^(\s+)/)?.[1] || '').replace(/\t/g, '    ')
+      let cur = indent
+      for (const word of raw.trim().split(/\s+/)) {
+        const test = cur.trim() ? cur + ' ' + word : cur + word
+        if (ctx.measureText(test).width > Math.max(maxW, fontPx * 4) && cur.trim()) {
+          lines.push(cur)
+          cur = indent + word
+        } else cur = test
+      }
+      lines.push(cur)
+    }
+
+    const widest = lines.reduce((m, l) => Math.max(m, ctx.measureText(l).width), 0)
+    const blockH = lines.length * lineH
+    const x = pos.x * W
+    const top = pos.y * H
+    const left = align === 'center' ? x - widest / 2 : x
+    return { lines, fontPx, lineH, blockH, widest, x, top, left, pad }
+  }
 
   function draw() {
     const img = imgRef.current
@@ -89,15 +157,21 @@ export default function PoemOverlay({ imageSrc, standalone = false }) {
     canvas.height = H
     const ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, W, H)
-    ctx.drawImage(img, 0, 0, W, H)
 
-    const pad = W * 0.07
-    const fontPx = Math.max(8, Math.round((size / 100) * H))
-    const lineH = fontPx * leading
-    const family = font === 'serif' ? '"Iowan Old Style", Georgia, serif' : 'Helvetica, Arial, sans-serif'
-    const style = font === 'serif' ? 'italic ' : ''
-    ctx.font = `${style}${fontPx}px ${family}`
+    // The adjustments belong to the photograph, not the poem — filter the
+    // image on the way in, then clear it so the words stay exactly as chosen.
+    if (adjusted) {
+      ctx.filter =
+        `brightness(${adj.brightness}) contrast(${adj.contrast}) ` +
+        `saturate(${adj.saturate}) hue-rotate(${adj.hue}deg) ` +
+        `sepia(${adj.sepia}) blur(${(adj.blur * H) / 100}px)`
+    }
+    ctx.drawImage(img, 0, 0, W, H)
+    ctx.filter = 'none'
+
     ctx.textBaseline = 'alphabetic'
+    const { lines, fontPx, lineH, blockH, widest, left, top, x } = layout(ctx, W, H)
+    const y = top + fontPx // first baseline
 
     // is the chosen ink light or dark? (drives the legibility shade direction)
     const inkLight = (() => {
@@ -108,47 +182,19 @@ export default function PoemOverlay({ imageSrc, standalone = false }) {
       return 0.299 * r + 0.587 * g + 0.114 * b > 140
     })()
 
-    // wrap each authored line, PRESERVING the poet's leading indentation
-    const maxW = W - pad * 2
-    const lines = []
-    for (const raw of poem.split('\n')) {
-      if (raw.trim() === '') { lines.push(''); continue }
-      const indentMatch = raw.match(/^(\s+)/)
-      const indent = indentMatch ? indentMatch[1].replace(/\t/g, '    ') : ''
-      let cur = indent
-      const words = raw.trim().split(/\s+/)
-      for (const word of words) {
-        const test = cur.trim() ? cur + ' ' + word : cur + word
-        if (ctx.measureText(test).width > maxW && cur.trim()) {
-          lines.push(cur)
-          cur = indent + word // keep the indent on wrapped continuations
-        } else cur = test
-      }
-      lines.push(cur)
-    }
-
-    const blockH = lines.length * lineH
-    let y
-    if (place === 'top') y = pad + fontPx
-    else if (place === 'middle') y = (H - blockH) / 2 + fontPx
-    else y = H - pad - blockH + fontPx
-
     // legibility scrim (shade behind the text, coloured opposite the ink)
+    // Legibility shade. Now that the poem can sit anywhere, the shade follows
+    // it: a soft pool centred on the text rather than a fixed edge gradient.
     if (scrim && poem.trim()) {
       const shade = inkLight ? '10,8,6' : '245,240,232'
-      const g = ctx.createLinearGradient(0, 0, 0, H)
-      const a = inkLight ? 0.6 : 0.5
-      if (place === 'bottom') {
-        g.addColorStop(0, `rgba(${shade},0)`)
-        g.addColorStop(0.55, `rgba(${shade},0)`)
-        g.addColorStop(1, `rgba(${shade},${a})`)
-      } else if (place === 'top') {
-        g.addColorStop(0, `rgba(${shade},${a})`)
-        g.addColorStop(0.45, `rgba(${shade},0)`)
-      } else {
-        g.addColorStop(0, `rgba(${shade},${a * 0.7})`)
-        g.addColorStop(1, `rgba(${shade},${a * 0.7})`)
-      }
+      const a = inkLight ? 0.55 : 0.45
+      const cx = align === 'center' ? x : left + widest / 2
+      const cy = top + blockH / 2
+      const r = Math.max(widest, blockH) * 0.95 + fontPx * 2
+      const g = ctx.createRadialGradient(cx, cy, r * 0.15, cx, cy, r)
+      g.addColorStop(0, `rgba(${shade},${a})`)
+      g.addColorStop(0.6, `rgba(${shade},${a * 0.55})`)
+      g.addColorStop(1, `rgba(${shade},0)`)
       ctx.fillStyle = g
       ctx.fillRect(0, 0, W, H)
     }
@@ -159,9 +205,95 @@ export default function PoemOverlay({ imageSrc, standalone = false }) {
     ctx.shadowBlur = fontPx * 0.12
     ctx.fillStyle = ink
     ctx.textAlign = align
-    const x = align === 'center' ? W / 2 : pad
     lines.forEach((ln, i) => ctx.fillText(ln, x, y + i * lineH))
     ctx.restore()
+
+    // While dragging, outline what's being moved so the grab reads as physical.
+    if (dragging) {
+      ctx.save()
+      ctx.strokeStyle = inkLight ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.45)'
+      ctx.setLineDash([fontPx * 0.35, fontPx * 0.3])
+      ctx.lineWidth = Math.max(1, fontPx * 0.04)
+      ctx.strokeRect(left - fontPx * 0.4, top - fontPx * 0.25, widest + fontPx * 0.8, blockH + fontPx * 0.5)
+      ctx.restore()
+    }
+  }
+
+  // ── Dragging the poem ────────────────────────────────────────────────
+  // The canvas is displayed smaller than the image it holds, so every pointer
+  // position has to be converted into image coordinates before it means
+  // anything. Pointer capture keeps the drag alive past the canvas edge.
+  function toImage(e) {
+    const canvas = canvasRef.current
+    const r = canvas.getBoundingClientRect()
+    return {
+      x: ((e.clientX - r.left) / r.width) * canvas.width,
+      y: ((e.clientY - r.top) / r.height) * canvas.height,
+    }
+  }
+
+  function onPointerDown(e) {
+    if (!poem.trim() || !imgRef.current) return
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext('2d')
+    const { left, top, blockH, widest, fontPx } = layout(ctx, canvas.width, canvas.height)
+    const p = toImage(e)
+
+    // A generous grab area — the words are thin, the gesture shouldn't be.
+    const slack = fontPx * 0.6
+    const inside =
+      p.x >= left - slack &&
+      p.x <= left + widest + slack &&
+      p.y >= top - slack &&
+      p.y <= top + blockH + slack
+    if (!inside) return
+
+    e.preventDefault()
+    // Capture keeps the drag alive past the canvas edge, but it throws on a
+    // pointer id the browser doesn't recognise — never let that lose the drag.
+    try {
+      canvas.setPointerCapture?.(e.pointerId)
+    } catch {}
+    dragRef.current = { dx: p.x - pos.x * canvas.width, dy: p.y - pos.y * canvas.height }
+    setDragging(true)
+  }
+
+  function onPointerMove(e) {
+    if (!dragging || !dragRef.current) return
+    const canvas = canvasRef.current
+    const p = toImage(e)
+    // Keep the anchor on the canvas; the text may overhang, which is often
+    // exactly what's wanted for a line that bleeds off an edge.
+    const clamp = (v) => Math.min(0.98, Math.max(0.02, v))
+    setPos({
+      x: clamp((p.x - dragRef.current.dx) / canvas.width),
+      y: clamp((p.y - dragRef.current.dy) / canvas.height),
+    })
+  }
+
+  function endDrag(e) {
+    if (!dragging) return
+    try {
+      canvasRef.current?.releasePointerCapture?.(e.pointerId)
+    } catch {}
+    dragRef.current = null
+    setDragging(false)
+  }
+
+  // Nudge with the arrow keys once the canvas has focus — finer than a drag.
+  function onKeyDown(e) {
+    const step = e.shiftKey ? 0.05 : 0.005
+    const moves = {
+      ArrowLeft: [-step, 0],
+      ArrowRight: [step, 0],
+      ArrowUp: [0, -step],
+      ArrowDown: [0, step],
+    }
+    const m = moves[e.key]
+    if (!m) return
+    e.preventDefault()
+    const clamp = (v) => Math.min(0.98, Math.max(0.02, v))
+    setPos((p) => ({ x: clamp(p.x + m[0]), y: clamp(p.y + m[1]) }))
   }
 
   function download() {
@@ -260,13 +392,15 @@ export default function PoemOverlay({ imageSrc, standalone = false }) {
             className="w-full resize-y rounded-sm border border-line bg-card px-4 py-3 font-serif text-base italic leading-relaxed text-body placeholder:not-italic placeholder:text-muted/70 focus:border-fuchsia focus:outline-none"
           />
           <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
-            <div>
-              <span className="mr-2 text-muted">Place</span>
-              <Toggle
-                options={[{ l: 'Top', v: 'top' }, { l: 'Middle', v: 'middle' }, { l: 'Bottom', v: 'bottom' }]}
-                value={place}
-                onChange={setPlace}
-              />
+            <div className="flex items-center gap-2">
+              <span className="text-muted">Place</span>
+              <span className="text-xs text-muted/80">drag it on the image</span>
+              <button
+                onClick={() => setPos({ x: 0.07, y: 0.72 })}
+                className="rounded-full border border-line px-2.5 py-0.5 text-xs text-muted transition-colors hover:border-fuchsia hover:text-fuchsia"
+              >
+                reset
+              </button>
             </div>
             <div>
               <span className="mr-2 text-muted">Align</span>
@@ -333,10 +467,70 @@ export default function PoemOverlay({ imageSrc, standalone = false }) {
               />
             </label>
           </div>
+
+          {/* Darkroom — the picture only; the poem keeps the colour you chose */}
+          <div className="mt-6 border-t border-line pt-4">
+            <div className="mb-3 flex items-center gap-3">
+              <span className="font-grotesk text-[0.72rem] font-bold uppercase tracking-[0.18em] text-muted">
+                The image
+              </span>
+              {adjusted && (
+                <button
+                  onClick={() =>
+                    setAdj({ brightness: 1, contrast: 1, saturate: 1, hue: 0, sepia: 0, blur: 0 })
+                  }
+                  className="rounded-full border border-line px-2.5 py-0.5 text-xs text-muted transition-colors hover:border-fuchsia hover:text-fuchsia"
+                >
+                  reset
+                </button>
+              )}
+            </div>
+            <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
+              {[
+                { k: 'brightness', l: 'Brightness', min: 0.3, max: 1.8, step: 0.01 },
+                { k: 'contrast', l: 'Contrast', min: 0.3, max: 2, step: 0.01 },
+                { k: 'saturate', l: 'Saturation', min: 0, max: 2.5, step: 0.01 },
+                { k: 'hue', l: 'Hue', min: -180, max: 180, step: 1 },
+                { k: 'sepia', l: 'Warmth', min: 0, max: 1, step: 0.01 },
+                { k: 'blur', l: 'Blur', min: 0, max: 2, step: 0.02 },
+              ].map(({ k, l, min, max, step }) => (
+                <label key={k} className="flex items-center gap-2 text-sm text-muted">
+                  <span className="w-20 shrink-0">{l}</span>
+                  <input
+                    type="range"
+                    min={min}
+                    max={max}
+                    step={step}
+                    value={adj[k]}
+                    onChange={(e) => setAdj((a) => ({ ...a, [k]: +e.target.value }))}
+                    className="flex-1"
+                  />
+                </label>
+              ))}
+            </div>
+          </div>
         </div>
 
         <div>
-          <canvas ref={canvasRef} className="w-full rounded-sm border border-line" />
+          <canvas
+            ref={canvasRef}
+            tabIndex={0}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={endDrag}
+            onPointerCancel={endDrag}
+            onKeyDown={onKeyDown}
+            title="Drag the poem to place it — arrow keys nudge"
+            className={
+              'w-full touch-none rounded-sm border border-line focus:outline-none focus-visible:border-fuchsia ' +
+              (poem.trim() ? (dragging ? 'cursor-grabbing' : 'cursor-grab') : '')
+            }
+          />
+          {poem.trim() && (
+            <p className="mt-2 text-xs text-muted">
+              Drag the poem where you want it. Arrow keys nudge; hold shift for bigger steps.
+            </p>
+          )}
           <button
             onClick={download}
             disabled={!poem.trim()}
