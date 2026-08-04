@@ -6,3 +6,5 @@ dist
 
 # local scratch/test harnesses
 __*
+.vercel
+.env*

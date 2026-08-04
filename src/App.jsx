@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { MotionConfig, motion } from 'framer-motion'
 import Spark from './components/Spark.jsx'
-import Words from './components/Words.jsx'
+import Workspace from './components/Workspace.jsx'
+import Workspaces from './components/Workspaces.jsx'
 import WordMap from './components/WordMap.jsx'
 import Reviewer from './components/Reviewer.jsx'
 import PoemOverlay from './components/PoemOverlay.jsx'
@@ -9,7 +10,7 @@ import Hero from './components/Hero.jsx'
 import TopNav from './components/TopNav.jsx'
 import FeedbackMarkup from './components/FeedbackMarkup.jsx'
 import MorphTransition from './components/MorphTransition.jsx'
-import { pageV } from './motion.jsx'
+import { blankWorkspace, saveWorkspace, getWorkspace, pruneEmpty } from './store.js'
 
 function ThemeToggle() {
   function toggle() {
@@ -34,8 +35,25 @@ export default function App() {
   const [entered, setEntered] = useState(false)
   const [tab, setTab] = useState('spark')
   const [mood, setMood] = useState('melancholy')
-  const [chosen, setChosen] = useState(null) // { text, seed_image }
   const [autoFind, setAutoFind] = useState(false)
+  const [workspace, setWorkspace] = useState(null) // the one currently open
+
+  // Choosing a prompt gives it a room of its own, and sweeps away any empty
+  // rooms left behind by browsing.
+  async function startWorkspace(prompt) {
+    const created = await saveWorkspace(blankWorkspace({ prompt, mood }))
+    pruneEmpty(created.id)
+    setWorkspace(created)
+    setTab('work')
+  }
+
+  async function openWorkspace(id) {
+    const found = await getWorkspace(id)
+    if (found) {
+      setWorkspace(found)
+      setTab('work')
+    }
+  }
 
   const homeView = (
     <Hero
@@ -43,8 +61,7 @@ export default function App() {
       setMood={setMood}
       onEnter={(payload = {}) => {
         if (payload.feeling) {
-          setChosen({ text: payload.feeling, seed_image: '' })
-          setTab('spark')
+          startWorkspace({ text: payload.feeling, seed_image: '' })
         } else {
           if (payload.tab) setTab(payload.tab)
           if (payload.find) setAutoFind(true)
@@ -65,8 +82,9 @@ export default function App() {
                   setEntered(false)
                   return
                 }
+                // the Workspaces tab always opens on the list, never the last room
+                if (t === 'work') setWorkspace(null)
                 setTab(t)
-                setChosen(null)
               }}
             />
 
@@ -86,17 +104,25 @@ export default function App() {
                   // CSS-driven: a JS entrance here can stall while the page is
                   // hidden and strand the panel invisible.
                   <div key={t} className="tab-enter">
-                    {t === 'spark' &&
-                      (!chosen ? (
-                        <Spark
-                          mood={mood}
-                          setMood={setMood}
-                          onChoose={setChosen}
-                          autoRun={autoFind}
-                          onAutoRunDone={() => setAutoFind(false)}
+                    {t === 'spark' && (
+                      <Spark
+                        mood={mood}
+                        setMood={setMood}
+                        onChoose={startWorkspace}
+                        autoRun={autoFind}
+                        onAutoRunDone={() => setAutoFind(false)}
+                      />
+                    )}
+
+                    {t === 'work' &&
+                      (workspace ? (
+                        <Workspace
+                          workspace={workspace}
+                          onChange={setWorkspace}
+                          onBack={() => setWorkspace(null)}
                         />
                       ) : (
-                        <Words prompt={chosen} mood={mood} onBack={() => setChosen(null)} />
+                        <Workspaces onOpen={openWorkspace} onNew={() => setTab('spark')} />
                       ))}
 
                     {t === 'map' && <WordMap mood={mood} setMood={setMood} />}

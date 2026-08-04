@@ -62,12 +62,36 @@ function extractPalette(dataUrls, onDone) {
   })
 }
 
-export default function MoodBoard({ feeling, paletteNames = [] }) {
-  const [tiles, setTiles] = useState([]) // [{ id, img, aspect }]
+/**
+ * The mood board.
+ *
+ * Uncontrolled by default (it keeps its own tiles). Pass `tiles` + `onTilesChange`
+ * and a workspace owns them instead, so they can be saved and come back later;
+ * `initial` seeds the reading/generated image the same way.
+ */
+export default function MoodBoard({
+  feeling,
+  paletteNames = [],
+  tiles: tilesProp,
+  onTilesChange,
+  onPaletteChange,
+  onReadingChange,
+  onGeneratedChange,
+  initial = null,
+}) {
+  const controlled = Array.isArray(tilesProp)
+  const [ownTiles, setOwnTiles] = useState([]) // [{ id, img, aspect }]
+  const tiles = controlled ? tilesProp : ownTiles
+  const setTiles = (update) => {
+    const next = typeof update === 'function' ? update(tiles) : update
+    if (controlled) onTilesChange?.(next)
+    else setOwnTiles(next)
+  }
+
   const [palette, setPalette] = useState([])
-  const [reading, setReading] = useState(null) // { see, prompt }
-  const [genPrompt, setGenPrompt] = useState('')
-  const [image, setImage] = useState(null) // generated data URL
+  const [reading, setReading] = useState(initial?.reading || null) // { see, prompt }
+  const [genPrompt, setGenPrompt] = useState(initial?.generated?.prompt || '')
+  const [image, setImage] = useState(initial?.generated?.image || null) // generated data URL
   const [phase, setPhase] = useState(null) // 'reading' | 'generating'
   const [error, setError] = useState(null)
   const fileRef = useRef(null)
@@ -81,7 +105,12 @@ export default function MoodBoard({ feeling, paletteNames = [] }) {
     const added = await Promise.all(files.map((f) => fileToDataUrl(f)))
     setTiles((prev) => [
       ...prev,
-      ...added.map(({ src, aspect }) => ({ id: `t${nextId.current++}`, img: src, aspect })),
+      // ids must not collide with tiles restored from a saved workspace
+      ...added.map(({ src, aspect }) => ({
+        id: `t${Date.now().toString(36)}${nextId.current++}`,
+        img: src,
+        aspect,
+      })),
     ])
   }
 
@@ -100,7 +129,11 @@ export default function MoodBoard({ feeling, paletteNames = [] }) {
   }, [])
 
   useEffect(() => {
-    extractPalette(images, setPalette)
+    extractPalette(images, (p) => {
+      setPalette(p)
+      onPaletteChange?.(p)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [images])
 
   async function readBoard() {
@@ -113,6 +146,7 @@ export default function MoodBoard({ feeling, paletteNames = [] }) {
       const r = await readMoodboard({ images, feeling, colors: palette })
       setReading(r)
       setGenPrompt(r.prompt || '')
+      onReadingChange?.(r)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -127,6 +161,7 @@ export default function MoodBoard({ feeling, paletteNames = [] }) {
     try {
       const { image } = await illustrate({ prompt: genPrompt })
       setImage(image)
+      onGeneratedChange?.({ image, prompt: genPrompt })
     } catch (e) {
       setError(e.message)
     } finally {

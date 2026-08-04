@@ -2,6 +2,7 @@ import { Feather } from 'lucide-react'
 
 const LINKS = [
   { l: 'Home', t: 'home' },
+  { l: 'Workspaces', t: 'work' },
   { l: 'Word map', t: 'map' },
   { l: 'Reviewer', t: 'review' },
   { l: 'Poem on image', t: 'overlay' },
