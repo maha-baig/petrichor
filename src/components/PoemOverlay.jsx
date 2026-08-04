@@ -22,6 +22,63 @@ function loadImageFile(file, max = 1600) {
   })
 }
 
+const HOME = { x: 0.07, y: 0.72 }
+const NO_ADJUST = { brightness: 1, contrast: 1, saturate: 1, hue: 0, sepia: 0, blur: 0 }
+const INKS = ['#f4f1ea', '#17130f', '#d6156a', '#c9a86a', '#69768b']
+const ADJUSTMENTS = [
+  { k: 'brightness', l: 'Brightness', min: 0.3, max: 1.8, step: 0.01 },
+  { k: 'contrast', l: 'Contrast', min: 0.3, max: 2, step: 0.01 },
+  { k: 'saturate', l: 'Saturation', min: 0, max: 2.5, step: 0.01 },
+  { k: 'hue', l: 'Hue', min: -180, max: 180, step: 1 },
+  { k: 'sepia', l: 'Warmth', min: 0, max: 1, step: 0.01 },
+  { k: 'blur', l: 'Blur', min: 0, max: 2, step: 0.02 },
+]
+
+// A titled set of settings. The rule and the space above separate groups; rows
+// inside sit close together — the rhythm is what says which belong together.
+function Group({ title, onReset, resetLabel = 'reset', children }) {
+  return (
+    <section className="mt-7 border-t border-line pt-5 first:mt-5">
+      <div className="mb-3 flex items-baseline gap-3">
+        <h3 className="font-serif text-base italic text-body">{title}</h3>
+        {onReset && (
+          <button
+            onClick={onReset}
+            className="text-xs text-muted underline decoration-line underline-offset-2 transition-colors hover:text-fuchsia"
+          >
+            {resetLabel}
+          </button>
+        )}
+      </div>
+      <div className="flex flex-col gap-2.5">{children}</div>
+    </section>
+  )
+}
+
+// One setting: a fixed label column so every control starts on the same line.
+function Row({ label, children }) {
+  return (
+    <div className="flex items-center gap-4 text-sm">
+      <span className="w-[4.5rem] shrink-0 text-muted">{label}</span>
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  )
+}
+
+function Slider({ min, max, step, value, onChange }) {
+  return (
+    <input
+      type="range"
+      min={min}
+      max={max}
+      step={step}
+      value={value}
+      onChange={(e) => onChange(+e.target.value)}
+      className="w-full max-w-[15rem] accent-[var(--fuchsia)]"
+    />
+  )
+}
+
 // Compose a poem over an image on a canvas — real typography, crisp export.
 // Pass imageSrc to fix the image (e.g. a generated one), or omit it for the
 // standalone tool where the poet loads any image themselves.
@@ -38,18 +95,11 @@ export default function PoemOverlay({ imageSrc, standalone = false }) {
   // Where the poem sits, as a fraction of the image (0–1) so it survives a
   // change of image or export size. This is the anchor of the text block:
   // its left edge when ranged left, its centre when centred.
-  const [pos, setPos] = useState({ x: 0.07, y: 0.72 })
+  const [pos, setPos] = useState(HOME)
   const [dragging, setDragging] = useState(false)
 
   // Darkroom controls. 1 = untouched, so the defaults draw the original.
-  const [adj, setAdj] = useState({
-    brightness: 1,
-    contrast: 1,
-    saturate: 1,
-    hue: 0, // degrees
-    sepia: 0,
-    blur: 0, // px at export scale
-  })
+  const [adj, setAdj] = useState(NO_ADJUST)
   const adjusted =
     adj.brightness !== 1 ||
     adj.contrast !== 1 ||
@@ -57,6 +107,8 @@ export default function PoemOverlay({ imageSrc, standalone = false }) {
     adj.hue !== 0 ||
     adj.sepia !== 0 ||
     adj.blur !== 0
+
+  const placed = pos.x !== HOME.x || pos.y !== HOME.y
 
   const canvasRef = useRef(null)
   const imgRef = useRef(null)
@@ -101,7 +153,7 @@ export default function PoemOverlay({ imageSrc, standalone = false }) {
   }, [src])
 
   // redraw on any change
-  useEffect(draw, [poem, pos, align, font, ink, scrim, size, leading, src, adj])
+  useEffect(draw, [poem, pos, align, font, ink, scrim, size, leading, src, adj, dragging])
 
   // Lay the poem out for a given canvas: the wrapped lines and the box they
   // occupy. draw() paints it; the drag handler uses the box to know what was
@@ -147,7 +199,9 @@ export default function PoemOverlay({ imageSrc, standalone = false }) {
     return { lines, fontPx, lineH, blockH, widest, x, top, left, pad }
   }
 
-  function draw() {
+  // showOutline is an argument rather than a read of state so the export can
+  // ask for a clean frame — the drag outline is a handle, not part of the work.
+  function draw(showOutline = dragging) {
     const img = imgRef.current
     const canvas = canvasRef.current
     if (!img || !canvas) return
@@ -209,7 +263,7 @@ export default function PoemOverlay({ imageSrc, standalone = false }) {
     ctx.restore()
 
     // While dragging, outline what's being moved so the grab reads as physical.
-    if (dragging) {
+    if (showOutline) {
       ctx.save()
       ctx.strokeStyle = inkLight ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.45)'
       ctx.setLineDash([fontPx * 0.35, fontPx * 0.3])
@@ -299,10 +353,14 @@ export default function PoemOverlay({ imageSrc, standalone = false }) {
   function download() {
     const canvas = canvasRef.current
     if (!canvas) return
+    // Repaint without the drag handle first: what is saved is only ever the
+    // image and the poem.
+    draw(false)
     const a = document.createElement('a')
     a.download = 'petrichor-poem.png'
     a.href = canvas.toDataURL('image/png')
     a.click()
+    draw() // restore the handle if a drag is still in progress
   }
 
   const Toggle = ({ options, value, onChange }) => (
@@ -367,9 +425,12 @@ export default function PoemOverlay({ imageSrc, standalone = false }) {
             loadFiles(e.dataTransfer.files)
           }}
           onClick={() => fileRef.current?.click()}
-          className="mb-4 cursor-pointer rounded-sm border border-dashed border-line bg-card/50 p-6 text-center text-sm text-muted transition-colors hover:border-fuchsia"
+          className={
+            'cursor-pointer rounded-sm border border-dashed border-line text-center text-muted transition-colors hover:border-fuchsia ' +
+            (src ? 'mb-6 px-4 py-2 text-xs' : 'mb-6 bg-card/50 px-6 py-10 text-sm')
+          }
         >
-          {src ? 'Image loaded. Paste, drop, or click to swap it' : 'Paste (⌘V), drop, or click to load an image'}
+          {src ? 'Swap the image: paste, drop, or click' : 'Paste (⌘V), drop, or click to load an image'}
           <input
             ref={fileRef}
             type="file"
@@ -391,124 +452,81 @@ export default function PoemOverlay({ imageSrc, standalone = false }) {
             rows={7}
             className="w-full resize-y rounded-sm border border-line bg-card px-4 py-3 font-serif text-base italic leading-relaxed text-body placeholder:not-italic placeholder:text-muted/70 focus:border-fuchsia focus:outline-none"
           />
-          <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-muted">Place</span>
-              <span className="text-xs text-muted/80">drag it on the image</span>
-              <button
-                onClick={() => setPos({ x: 0.07, y: 0.72 })}
-                className="rounded-full border border-line px-2.5 py-0.5 text-xs text-muted transition-colors hover:border-fuchsia hover:text-fuchsia"
-              >
-                reset
-              </button>
-            </div>
-            <div>
-              <span className="mr-2 text-muted">Align</span>
+          {/* Two settings groups, one shape: a fixed label column so every
+              control starts on the same line, tight rows inside a group and a
+              wide gap between them. */}
+          <Group title="The words" onReset={placed ? () => setPos(HOME) : null} resetLabel="recentre">
+            <Row label="Font">
               <Toggle
-                options={[{ l: 'Left', v: 'left' }, { l: 'Center', v: 'center' }]}
-                value={align}
-                onChange={setAlign}
-              />
-            </div>
-            <div>
-              <span className="mr-2 text-muted">Font</span>
-              <Toggle
-                options={[{ l: 'Serif', v: 'serif' }, { l: 'Sans', v: 'sans' }]}
+                options={[
+                  { l: 'Serif', v: 'serif' },
+                  { l: 'Sans', v: 'sans' },
+                ]}
                 value={font}
                 onChange={setFont}
               />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-muted">Ink</span>
-              {['#f4f1ea', '#17130f', '#d6156a', '#c9a86a', '#69768b'].map((hex) => (
-                <button
-                  key={hex}
-                  onClick={() => setInk(hex)}
-                  aria-label={`ink ${hex}`}
-                  className={
-                    'h-6 w-6 rounded-full border transition-transform hover:scale-110 ' +
-                    (ink.toLowerCase() === hex ? 'border-fuchsia ring-1 ring-fuchsia' : 'border-line')
-                  }
-                  style={{ background: hex }}
-                />
-              ))}
-              <input
-                type="color"
-                value={ink}
-                onChange={(e) => setInk(e.target.value)}
-                aria-label="custom ink colour"
-                className="h-6 w-6 cursor-pointer rounded-full border border-line bg-transparent p-0"
+            </Row>
+            <Row label="Align">
+              <Toggle
+                options={[
+                  { l: 'Left', v: 'left' },
+                  { l: 'Center', v: 'center' },
+                ]}
+                value={align}
+                onChange={setAlign}
               />
-            </div>
-            <label className="flex items-center gap-2 text-muted">
-              <input type="checkbox" checked={scrim} onChange={(e) => setScrim(e.target.checked)} />
-              Legibility shade
-            </label>
-            <label className="flex items-center gap-2 text-muted">
-              Size
-              <input
-                type="range"
-                min="1.5"
-                max="9"
-                step="0.25"
-                value={size}
-                onChange={(e) => setSize(+e.target.value)}
-              />
-            </label>
-            <label className="flex items-center gap-2 text-muted">
-              Spacing
-              <input
-                type="range"
-                min="1"
-                max="2.4"
-                step="0.05"
-                value={leading}
-                onChange={(e) => setLeading(+e.target.value)}
-              />
-            </label>
-          </div>
-
-          {/* Darkroom — the picture only; the poem keeps the colour you chose */}
-          <div className="mt-6 border-t border-line pt-4">
-            <div className="mb-3 flex items-center gap-3">
-              <span className="font-grotesk text-[0.72rem] font-bold uppercase tracking-[0.18em] text-muted">
-                The image
-              </span>
-              {adjusted && (
-                <button
-                  onClick={() =>
-                    setAdj({ brightness: 1, contrast: 1, saturate: 1, hue: 0, sepia: 0, blur: 0 })
-                  }
-                  className="rounded-full border border-line px-2.5 py-0.5 text-xs text-muted transition-colors hover:border-fuchsia hover:text-fuchsia"
-                >
-                  reset
-                </button>
-              )}
-            </div>
-            <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
-              {[
-                { k: 'brightness', l: 'Brightness', min: 0.3, max: 1.8, step: 0.01 },
-                { k: 'contrast', l: 'Contrast', min: 0.3, max: 2, step: 0.01 },
-                { k: 'saturate', l: 'Saturation', min: 0, max: 2.5, step: 0.01 },
-                { k: 'hue', l: 'Hue', min: -180, max: 180, step: 1 },
-                { k: 'sepia', l: 'Warmth', min: 0, max: 1, step: 0.01 },
-                { k: 'blur', l: 'Blur', min: 0, max: 2, step: 0.02 },
-              ].map(({ k, l, min, max, step }) => (
-                <label key={k} className="flex items-center gap-2 text-sm text-muted">
-                  <span className="w-20 shrink-0">{l}</span>
-                  <input
-                    type="range"
-                    min={min}
-                    max={max}
-                    step={step}
-                    value={adj[k]}
-                    onChange={(e) => setAdj((a) => ({ ...a, [k]: +e.target.value }))}
-                    className="flex-1"
+            </Row>
+            <Row label="Size">
+              <Slider min={1.5} max={9} step={0.25} value={size} onChange={setSize} />
+            </Row>
+            <Row label="Spacing">
+              <Slider min={1} max={2.4} step={0.05} value={leading} onChange={setLeading} />
+            </Row>
+            <Row label="Ink">
+              <div className="flex flex-wrap items-center gap-2">
+                {INKS.map((hex) => (
+                  <button
+                    key={hex}
+                    onClick={() => setInk(hex)}
+                    aria-label={`ink ${hex}`}
+                    className={
+                      'h-6 w-6 rounded-full border transition-transform hover:scale-110 ' +
+                      (ink.toLowerCase() === hex ? 'border-fuchsia ring-1 ring-fuchsia' : 'border-line')
+                    }
+                    style={{ background: hex }}
                   />
-                </label>
-              ))}
-            </div>
-          </div>
+                ))}
+                <input
+                  type="color"
+                  value={ink}
+                  onChange={(e) => setInk(e.target.value)}
+                  aria-label="custom ink colour"
+                  className="h-6 w-6 cursor-pointer rounded-full border border-line bg-transparent p-0"
+                />
+              </div>
+            </Row>
+            <Row label="Shade">
+              <label className="flex cursor-pointer items-center gap-2 text-muted">
+                <input type="checkbox" checked={scrim} onChange={(e) => setScrim(e.target.checked)} />
+                <span>darken behind the words</span>
+              </label>
+            </Row>
+          </Group>
+
+          {/* The picture only — the poem keeps the ink chosen above. */}
+          <Group title="The image" onReset={adjusted ? () => setAdj(NO_ADJUST) : null}>
+            {ADJUSTMENTS.map(({ k, l, min, max, step }) => (
+              <Row key={k} label={l}>
+                <Slider
+                  min={min}
+                  max={max}
+                  step={step}
+                  value={adj[k]}
+                  onChange={(v) => setAdj((a) => ({ ...a, [k]: v }))}
+                />
+              </Row>
+            ))}
+          </Group>
         </div>
 
         <div>
