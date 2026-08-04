@@ -45,19 +45,54 @@ export default function Words({ prompt, mood, onBack }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [asking, setAsking] = useState(null) // 'evocative' | 'searchTerms'
+  // how long each list was on arrival, so later helpings can announce themselves
+  const firstBatch = useRef({ evocative: 0, searchTerms: 0 })
 
   useEffect(() => {
     let alive = true
     setLoading(true)
     setError(null)
     getWords({ prompt: prompt.text, mood })
-      .then((d) => alive && setData(d))
+      .then((d) => {
+        if (!alive) return
+        firstBatch.current = {
+          evocative: d.evocative?.length || 0,
+          searchTerms: d.searchTerms?.length || 0,
+        }
+        setData(d)
+      })
       .catch((e) => alive && setError(e.message))
       .finally(() => alive && setLoading(false))
     return () => {
       alive = false
     }
   }, [prompt, mood])
+
+  // A second helping of one currency, minus everything already on screen.
+  async function askMore(want) {
+    setAsking(want)
+    setError(null)
+    try {
+      const res = await getMoreWords({
+        prompt: prompt.text,
+        mood,
+        want,
+        count: 8,
+        exclude: data?.[want] || [],
+      })
+      const added = res[want] || []
+      if (!added.length) {
+        setError('No new ground there — try remapping the prompt.')
+        return
+      }
+      setData((d) => ({ ...d, [want]: [...(d[want] || []), ...added] }))
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setAsking(null)
+    }
+  }
 
   const cosmosUrl =
     'https://www.cosmos.so/search?q=' +
@@ -88,9 +123,14 @@ export default function Words({ prompt, mood, onBack }) {
             <p className="mb-3 text-sm text-muted">The raw ore — for you, not the search box.</p>
             <div className="flex flex-wrap gap-2">
               {data.evocative?.map((w, i) => (
-                <Chip key={i}>{w}</Chip>
+                <span key={i} className={i >= firstBatch.current.evocative ? 'animate-rise' : ''}>
+                  <Chip>{w}</Chip>
+                </span>
               ))}
             </div>
+            <MoreButton onClick={() => askMore('evocative')} busy={asking === 'evocative'}>
+              + more words to write with
+            </MoreButton>
           </div>
 
           <div>
@@ -110,11 +150,14 @@ export default function Words({ prompt, mood, onBack }) {
             <p className="mb-3 text-sm text-muted">Click any to copy, then paste into Cosmos.</p>
             <div className="flex flex-wrap gap-2">
               {data.searchTerms?.map((w, i) => (
-                <Chip key={i} copyable>
-                  {w}
-                </Chip>
+                <span key={i} className={i >= firstBatch.current.searchTerms ? 'animate-rise' : ''}>
+                  <Chip copyable>{w}</Chip>
+                </span>
               ))}
             </div>
+            <MoreButton onClick={() => askMore('searchTerms')} busy={asking === 'searchTerms'}>
+              + more terms to search in Cosmos
+            </MoreButton>
           </div>
 
           {data.palette?.length > 0 && (

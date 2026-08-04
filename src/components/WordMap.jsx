@@ -34,9 +34,11 @@ function packCloud(words, W, H) {
   const placed = []
   const sorted = [...words].sort((a, b) => (b.weight || 1) - (a.weight || 1))
   const maxR = Math.min(W, H) / 2 // keep the cloud circular, not rectangular
+  // A bigger cloud has to breathe smaller, or the outer words fall off the canvas.
+  const scale = words.length > 20 ? Math.max(0.55, Math.sqrt(20 / words.length)) : 1
 
   sorted.forEach((w, i) => {
-    const fontPx = FS[w.weight] || 26
+    const fontPx = Math.round((FS[w.weight] || 26) * scale)
     const wpx = Math.max(w.text.length * fontPx * 0.56, fontPx)
     const hpx = fontPx * 1.12
 
@@ -66,6 +68,7 @@ export default function WordMap({ mood, setMood }) {
   const [words, setWords] = useState([])
   const [kept, setKept] = useState({})
   const [loading, setLoading] = useState(false)
+  const [more, setMore] = useState(false)
   const [error, setError] = useState(null)
 
   const canvasRef = useRef(null)
@@ -96,6 +99,31 @@ export default function WordMap({ mood, setMood }) {
       setError(e.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Grow the same cloud: a big new batch, nothing already up there repeated,
+  // and the words the poet has kept stay exactly as they are.
+  async function grow() {
+    if (!feeling.trim() || !words.length) return
+    setMore(true)
+    setError(null)
+    try {
+      const { words: added } = await getWordMap({
+        feeling: feeling.trim(),
+        mood,
+        count: 24,
+        exclude: words.map((w) => w.text),
+      })
+      if (!added?.length) {
+        setError('Nothing new came — try a remap instead.')
+        return
+      }
+      setWords((prev) => [...prev, ...added])
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setMore(false)
     }
   }
 
@@ -158,18 +186,33 @@ export default function WordMap({ mood, setMood }) {
           />
           <button
             onClick={draw}
-            disabled={loading}
+            disabled={loading || more}
             className="rounded-full bg-fuchsia px-6 py-2.5 font-grotesk font-bold text-white transition-transform hover:scale-[1.02] disabled:opacity-60"
           >
             {loading ? 'Gathering…' : hasCloud ? 'Remap' : 'Map it'}
           </button>
+          {hasCloud && (
+            <button
+              onClick={grow}
+              disabled={loading || more}
+              title="Add a fresh batch of words to this cloud"
+              className="rounded-full border border-line px-5 py-2.5 font-grotesk text-sm font-bold text-body transition-colors hover:border-fuchsia hover:text-fuchsia disabled:opacity-60"
+            >
+              {more ? 'Gathering more…' : '+ more words'}
+            </button>
+          )}
         </Reveal>
         {error && <p className="text-sm text-fuchsia">{error}</p>}
       </div>
 
       {/* The cloud fills the rest of the page */}
       {hasCloud && (
-        <div ref={canvasRef} className="relative mt-4 min-h-[62vh] flex-1">
+        <div
+          ref={canvasRef}
+          className="relative mt-4 flex-1"
+          // the canvas grows with the cloud so later batches have somewhere to land
+          style={{ minHeight: `${Math.min(62 + Math.max(0, words.length - 20) * 1.6, 120)}vh` }}
+        >
           {placed.map(({ x, y, fontPx, word }, i) => {
             const k = KIND[word.kind] || KIND.action
             const isKept = kept[word.text]
@@ -195,6 +238,15 @@ export default function WordMap({ mood, setMood }) {
             )
           })}
         </div>
+      )}
+
+      {/* only once the canvas has actually been measured — otherwise this flashes
+          "nothing fit" on the first paint, before any word has been placed */}
+      {hasCloud && size.w > 0 && placed.length > 0 && placed.length < words.length && (
+        <p className="mt-2 text-xs text-muted">
+          {words.length - placed.length} more{' '}
+          {words.length - placed.length === 1 ? 'word' : 'words'} couldn't find room on the page.
+        </p>
       )}
 
       {hasCloud && Object.values(kept).some(Boolean) && (
