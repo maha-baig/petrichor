@@ -28,9 +28,13 @@ function roundedRect(ctx, x, y, w, h, r) {
   ctx.closePath()
 }
 
+// Signed in, a gathered picture is a signed storage URL rather than a data URL.
+// Asking for it anonymously is what lets us read the composed card back out of
+// the canvas afterwards; without it the canvas is tainted and unreadable.
 function loadImage(src) {
   return new Promise((resolve) => {
     const img = new Image()
+    img.crossOrigin = 'anonymous'
     img.onload = () => resolve(img)
     img.onerror = () => resolve(null)
     img.src = src
@@ -196,6 +200,9 @@ export function typeCard(text, palette = [], words = []) {
  */
 async function photoCard(src, palette, words, title) {
   const img = await loadImage(src)
+  // If we can't fetch it anonymously the gallery can't either — it loads its
+  // textures the same way — so a raw URL here would be an invisible card.
+  // Better the prompt in type than a hole in the ribbon.
   if (!img) return typeCard(title, palette, words)
 
   const c = document.createElement('canvas')
@@ -219,7 +226,12 @@ async function photoCard(src, palette, words, title) {
   drawTags(ctx, tags, top + windowH + 30, H - MARGIN - 16)
   drawBoundary(ctx)
 
-  return c.toDataURL('image/jpeg', 0.86)
+  try {
+    return c.toDataURL('image/jpeg', 0.86)
+  } catch {
+    // A picture we're allowed to show but not to read back. Show it plain.
+    return src
+  }
 }
 
 /**
@@ -233,13 +245,16 @@ export async function workspaceCards(items, titleOf) {
       const palette = ws.boardPalette || []
       const first = ws.images?.[0]?.img
       const title = titleOf(ws)
-      return {
-        image: first
+      let image
+      try {
+        image = first
           ? await photoCard(first, palette, words, title)
-          : typeCard(title, palette, words),
-        text: title,
-        id: ws.id,
+          : typeCard(title, palette, words)
+      } catch {
+        // Nothing about painting a card is worth an empty drawer.
+        image = first || ''
       }
+      return { image, text: title, id: ws.id }
     }),
   )
 }

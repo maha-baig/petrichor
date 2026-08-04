@@ -42,9 +42,21 @@ export default function Workspaces({ onOpen, onNew }) {
   const [cards, setCards] = useState([])
   useEffect(() => {
     let alive = true
-    workspaceCards(items || [], workspaceTitle).then((built) => {
-      if (alive) setCards(built)
-    })
+    workspaceCards(items || [], workspaceTitle)
+      .then((built) => {
+        if (alive) setCards(built)
+      })
+      .catch(() => {
+        // Whatever went wrong in the painting, the drawer still opens.
+        if (!alive) return
+        setCards(
+          (items || []).map((w) => ({
+            image: w.images?.[0]?.img || '',
+            text: workspaceTitle(w),
+            id: w.id,
+          })),
+        )
+      })
     return () => {
       alive = false
     }
