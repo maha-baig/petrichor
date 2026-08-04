@@ -33,15 +33,23 @@ export default function Workspaces({ onOpen, onNew }) {
   const session = useSession()
   const needsSignIn = isSupabaseConfigured && session === null
 
-  // Building the cards paints a canvas per promptless workspace, and handing
-  // the gallery a new array tears down its WebGL scene — so only rebuild when
-  // the workspaces themselves actually change.
-  const cardsKey = (items || []).map((w) => `${w.id}:${w.images?.[0]?.id || ''}`).join('|')
-  const cards = useMemo(
-    () => workspaceCards(items || [], workspaceTitle),
+  // Building the cards paints a canvas per workspace — and waits on its picture
+  // to decode — while handing the gallery a new array tears down its WebGL
+  // scene. So only rebuild when the workspaces themselves actually change.
+  const cardsKey = (items || [])
+    .map((w) => `${w.id}:${w.images?.[0]?.id || ''}:${w.words?.evocative?.length || 0}`)
+    .join('|')
+  const [cards, setCards] = useState([])
+  useEffect(() => {
+    let alive = true
+    workspaceCards(items || [], workspaceTitle).then((built) => {
+      if (alive) setCards(built)
+    })
+    return () => {
+      alive = false
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [cardsKey],
-  )
+  }, [cardsKey])
 
   // Labels under the cards sit on the page, not the picture, so they follow
   // the theme rather than always being white.
@@ -185,15 +193,17 @@ export default function Workspaces({ onOpen, onNew }) {
         <>
           {/* The rooms themselves, as a ribbon you can push through. */}
           <div className="-mx-6 mt-8 h-[62vh] min-h-[420px]">
-            <CircularGallery
-              items={cards}
-              onItemClick={(i) => items[i] && onOpen(items[i].id)}
-              bend={2}
-              borderRadius={0.04}
-              scrollEase={0.03}
-              textColor={inkColor}
-              font='italic 30px "Iowan Old Style", Georgia, serif'
-            />
+            {cards.length > 0 && (
+              <CircularGallery
+                items={cards}
+                onItemClick={(i) => items[i] && onOpen(items[i].id)}
+                bend={2}
+                borderRadius={0.04}
+                scrollEase={0.03}
+                textColor={inkColor}
+                font='italic 30px "Iowan Old Style", Georgia, serif'
+              />
+            )}
           </div>
           <p className="text-center text-xs text-muted">
             {items.length > 1
