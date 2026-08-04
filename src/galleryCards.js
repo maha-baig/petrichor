@@ -41,12 +41,19 @@ function loadImage(src) {
   })
 }
 
-/** Fill the window with the picture, cropping the overhang rather than squashing it. */
-function drawCover(ctx, img, x, y, w, h) {
-  const scale = Math.max(w / img.naturalWidth, h / img.naturalHeight)
-  const dw = img.naturalWidth * scale
-  const dh = img.naturalHeight * scale
-  ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh)
+/**
+ * The whole picture, at its own proportions, as large as the space allows and
+ * centred in it. Nothing is cropped — a mood board is worth seeing entire.
+ */
+function fit(img, x, y, w, h) {
+  const ratio = (img.naturalWidth || 1) / (img.naturalHeight || 1)
+  let dw = w
+  let dh = dw / ratio
+  if (dh > h) {
+    dh = h
+    dw = dh * ratio
+  }
+  return { x: x + (w - dw) / 2, y: y + (h - dh) / 2, w: dw, h: dh }
 }
 
 /** The boundary, so the card reads as an object rather than a hole in the page. */
@@ -214,16 +221,23 @@ async function photoCard(src, palette, words, title) {
 
   const tags = pickWords(words)
   const room = tagRoom(tags)
-  const top = MARGIN + 16
-  const windowH = H - top - MARGIN - 16 - room
+  const inset = MARGIN + 16
+  const top = inset
+  const space = H - top - inset - room
+
+  // The picture takes whatever shape it is; the mount is drawn around it
+  // rather than the picture being cut to fit a mount.
+  const box = fit(img, inset, top, W - inset * 2, space)
+  ctx.drawImage(img, box.x, box.y, box.w, box.h)
 
   ctx.save()
-  roundedRect(ctx, MARGIN + 16, top, W - (MARGIN + 16) * 2, windowH, 10)
-  ctx.clip()
-  drawCover(ctx, img, MARGIN + 16, top, W - (MARGIN + 16) * 2, windowH)
+  ctx.strokeStyle = token('--body', '#ede7df')
+  ctx.globalAlpha = 0.22
+  ctx.lineWidth = 2
+  ctx.strokeRect(box.x - 1, box.y - 1, box.w + 2, box.h + 2)
   ctx.restore()
 
-  drawTags(ctx, tags, top + windowH + 30, H - MARGIN - 16)
+  drawTags(ctx, tags, top + space + 30, H - MARGIN - 16)
   drawBoundary(ctx)
 
   try {
