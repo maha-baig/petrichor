@@ -48,7 +48,7 @@ function readLinkError() {
   window.history.replaceState(null, '', window.location.pathname + window.location.search)
 
   if (code === 'otp_expired')
-    return 'That link has expired — they only last an hour, and each one can be opened once. Send yourself a fresh one below.'
+    return 'That link has expired. They only last an hour, and each one can be opened once. Send yourself a fresh one below.'
   if (code === 'access_denied')
     return 'That link could not be used. It may already have been opened. Send yourself a fresh one below.'
   return raw || 'That link could not be used. Send yourself a fresh one below.'
@@ -104,7 +104,7 @@ export default function SignIn({ title = 'Keep your work', blurb }) {
       <h2 className="font-serif text-2xl italic text-ink">{title}</h2>
       <p className="mt-2 max-w-lg text-sm text-muted">
         {blurb ||
-          'Sign in and every workspace — its words, its images, its poem — follows you to any browser. No password: a link arrives by email.'}
+          'Sign in and every workspace, with its words, its images, its poem, follows you to any browser. No password: a link arrives by email.'}
       </p>
       <form onSubmit={send} className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center">
         <input

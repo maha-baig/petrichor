@@ -109,7 +109,7 @@ export default function Workspace({ workspace, onChange, onBack }) {
       })
       const added = res[want] || []
       if (!added.length) {
-        setError('No new ground there — try another prompt.')
+        setError('No new ground there. Try another prompt.')
         return
       }
       await update({ words: { ...ws.words, [want]: [...(ws.words?.[want] || []), ...added] } })
@@ -199,7 +199,7 @@ export default function Workspace({ workspace, onChange, onBack }) {
         <Pill
           onClick={() => run('zip', downloadWorkspaceZip)}
           busy={busy === 'zip'}
-          title="Images, words, palette, poem and a readme — as one .zip"
+          title="Images, words, palette, poem and a readme, as one .zip"
         >
           everything (.zip)
         </Pill>
@@ -233,7 +233,7 @@ export default function Workspace({ workspace, onChange, onBack }) {
             <h3 className="mb-1 font-grotesk text-lg font-extrabold tracking-tight text-body">
               Words to write with
             </h3>
-            <p className="mb-3 text-sm text-muted">The raw ore — for you, not the search box.</p>
+            <p className="mb-3 text-sm text-muted">The raw ore: for you, not the search box.</p>
             <div className="flex flex-wrap gap-2">
               {ws.words.evocative?.map((w, i) => (
                 <span key={i} className={i >= firstBatch.current.evocative ? 'animate-rise' : ''}>

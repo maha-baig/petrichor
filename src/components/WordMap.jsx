@@ -116,7 +116,7 @@ export default function WordMap({ mood, setMood }) {
         exclude: words.map((w) => w.text),
       })
       if (!added?.length) {
-        setError('Nothing new came — try a remap instead.')
+        setError('Nothing new came. Try a remap instead.')
         return
       }
       setWords((prev) => [...prev, ...added])
@@ -165,7 +165,7 @@ export default function WordMap({ mood, setMood }) {
         )}
         {!hasCloud && (
           <Reveal as="p" order={2} className="max-w-xl text-muted">
-            Name what you're writing about, and watch its words gather across the page — biggest at
+            Name what you're writing about, and watch its words gather across the page, biggest at
             the heart, radiating out. Click any to keep it (and copy it).
           </Reveal>
         )}

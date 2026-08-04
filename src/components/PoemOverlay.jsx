@@ -211,7 +211,7 @@ export default function PoemOverlay({ imageSrc, standalone = false }) {
             Lay a poem on an image
           </Reveal>
           <Reveal as="p" order={2} className="mt-3 max-w-xl text-muted">
-            Bring any image — a photo, a saved Cosmos reference, anything — and set your words over it
+            Bring any image: a photo, a saved Cosmos reference, anything. Set your words over it
             in your own type. Export a finished piece.
           </Reveal>
         </header>
@@ -221,7 +221,7 @@ export default function PoemOverlay({ imageSrc, standalone = false }) {
             Put your poem on it
           </h4>
           <p className="mt-1 text-sm text-muted">
-            Paste your poem — your line breaks are kept. Then place it and export a finished image.
+            Paste your poem; your line breaks are kept. Then place it and export a finished image.
           </p>
         </>
       )}
@@ -237,7 +237,7 @@ export default function PoemOverlay({ imageSrc, standalone = false }) {
           onClick={() => fileRef.current?.click()}
           className="mb-4 cursor-pointer rounded-sm border border-dashed border-line bg-card/50 p-6 text-center text-sm text-muted transition-colors hover:border-fuchsia"
         >
-          {src ? 'Image loaded — paste, drop, or click to swap it' : 'Paste (⌘V), drop, or click to load an image'}
+          {src ? 'Image loaded. Paste, drop, or click to swap it' : 'Paste (⌘V), drop, or click to load an image'}
           <input
             ref={fileRef}
             type="file"

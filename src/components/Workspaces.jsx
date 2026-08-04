@@ -127,7 +127,7 @@ export default function Workspaces({ onOpen, onNew }) {
         Everything you've begun
       </Reveal>
       <Reveal as="p" order={2} className="mt-4 max-w-xl text-muted">
-        Each prompt you choose keeps its own room — its words, the images you gathered, the poem
+        Each prompt you choose keeps its own room: its words, the images you gathered, the poem
         that came of it.{' '}
         {session
           ? 'Signed in, so they follow you to any browser.'

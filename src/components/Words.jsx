@@ -83,7 +83,7 @@ export default function Words({ prompt, mood, onBack }) {
       })
       const added = res[want] || []
       if (!added.length) {
-        setError('No new ground there — try remapping the prompt.')
+        setError('No new ground there. Try remapping the prompt.')
         return
       }
       setData((d) => ({ ...d, [want]: [...(d[want] || []), ...added] }))
@@ -120,7 +120,7 @@ export default function Words({ prompt, mood, onBack }) {
             <h3 className="mb-1 font-grotesk text-lg font-extrabold tracking-tight text-body">
               Words to write with
             </h3>
-            <p className="mb-3 text-sm text-muted">The raw ore — for you, not the search box.</p>
+            <p className="mb-3 text-sm text-muted">The raw ore: for you, not the search box.</p>
             <div className="flex flex-wrap gap-2">
               {data.evocative?.map((w, i) => (
                 <span key={i} className={i >= firstBatch.current.evocative ? 'animate-rise' : ''}>

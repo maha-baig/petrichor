@@ -271,7 +271,7 @@ export default function MoodBoard({
           ) : (
             <p className="mt-5 rounded-sm border border-line bg-card/50 px-4 py-3 text-sm text-muted">
               <b className="text-body">Reading the board runs locally.</b> It uses a vision model and
-              a local image generator, which this hosted version can't reach — run Petrichor on your
+              a local image generator, which this hosted version can't reach. Run Petrichor on your
               own machine for that step.
             </p>
           )}

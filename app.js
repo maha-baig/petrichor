@@ -71,9 +71,9 @@ async function callGroq({ system, user }, temperature) {
   }
   if (!res.ok) {
     const body = await res.text().catch(() => '')
-    if (res.status === 401) throw new Error('Groq rejected the key — check GROQ_API_KEY.')
+    if (res.status === 401) throw new Error('Groq rejected the key. Check GROQ_API_KEY.')
     if (res.status === 429)
-      throw new Error('Groq rate limit reached — wait a moment and try again.')
+      throw new Error('Groq rate limit reached. Wait a moment and try again.')
     throw new Error(`Groq error ${res.status}: ${body.slice(0, 200)}`)
   }
   const data = await res.json()
@@ -105,7 +105,7 @@ async function callGemini({ system, user }, temperature) {
   if (!res.ok) {
     const body = await res.text().catch(() => '')
     if (res.status === 429)
-      throw new Error('Gemini free-tier rate limit hit — wait a moment and try again.')
+      throw new Error('Gemini free-tier rate limit hit. Wait a moment and try again.')
     throw new Error(`Gemini error ${res.status}: ${body.slice(0, 200)}`)
   }
   const data = await res.json()
@@ -151,7 +151,7 @@ async function callAnthropic({ system, user }, temperature) {
   if (!anthropic) {
     const { default: Anthropic } = await import('@anthropic-ai/sdk')
     if (!process.env.ANTHROPIC_API_KEY)
-      throw new Error('ANTHROPIC_API_KEY is not set — needed for MUSE_PROVIDER=anthropic.')
+      throw new Error('ANTHROPIC_API_KEY is not set. It is needed for MUSE_PROVIDER=anthropic.')
     anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
   }
   const msg = await anthropic.messages.create({

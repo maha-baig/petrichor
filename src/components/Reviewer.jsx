@@ -39,7 +39,7 @@ export default function Reviewer() {
         </Reveal>
         <Reveal as="p" order={2} className="mt-3 max-w-xl text-muted">
           Paste a poem. I'll tell you what I understand it to be doing, what's working, and where you
-          might push it further — the words stay yours.
+          might push it further. The words stay yours.
         </Reveal>
       </header>
 
