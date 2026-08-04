@@ -39,7 +39,6 @@ export default function App() {
   const [entered, setEntered] = useState(Boolean(linkError))
   const [tab, setTab] = useState(linkError ? 'work' : 'spark')
   const [mood, setMood] = useState('melancholy')
-  const [autoFind, setAutoFind] = useState(false)
   const [workspace, setWorkspace] = useState(null) // the one currently open
 
   // Choosing a prompt gives it a room of its own, and sweeps away any empty
@@ -61,14 +60,11 @@ export default function App() {
 
   const homeView = (
     <Hero
-      mood={mood}
-      setMood={setMood}
       onEnter={(payload = {}) => {
         if (payload.feeling) {
           startWorkspace({ text: payload.feeling, seed_image: '' })
-        } else {
-          if (payload.tab) setTab(payload.tab)
-          if (payload.find) setAutoFind(true)
+        } else if (payload.tab) {
+          setTab(payload.tab)
         }
         setEntered(true)
       }}
@@ -112,8 +108,6 @@ export default function App() {
                         mood={mood}
                         setMood={setMood}
                         onChoose={startWorkspace}
-                        autoRun={autoFind}
-                        onAutoRunDone={() => setAutoFind(false)}
                       />
                     )}
 

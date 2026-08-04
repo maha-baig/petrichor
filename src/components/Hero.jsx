@@ -7,18 +7,7 @@ const VIDEO_SRC =
 const FADE_MS = 500
 const TAIL_S = 0.55
 
-const MOODS = [
-  'melancholy',
-  'longing',
-  'tenderness',
-  'wonder',
-  'grief',
-  'nostalgia',
-  'quiet rage',
-  'restless',
-]
-
-export default function Hero({ mood, setMood, onEnter }) {
+export default function Hero({ onEnter }) {
   const [feeling, setFeeling] = useState('')
   const videoRef = useRef(null)
   const rafRef = useRef(0)
@@ -75,7 +64,7 @@ export default function Hero({ mood, setMood, onEnter }) {
     }
   }, [])
 
-  const findPrompt = () => onEnter?.({ tab: 'spark', find: true })
+  const findPrompt = () => onEnter?.({ tab: 'spark' })
   const useFeeling = () => feeling.trim() && onEnter?.({ feeling: feeling.trim() })
 
   return (
@@ -105,32 +94,8 @@ export default function Hero({ mood, setMood, onEnter }) {
             Where poems begin
           </h1>
 
-          {/* "in a register of" + chips, all on one line (scrolls when narrow) */}
-          <div className="mt-5 max-w-full overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <div className="mx-auto flex w-max items-center gap-1.5">
-              <span className="mr-1 shrink-0 font-serif italic text-white/70">in a register of</span>
-              {MOODS.map((m) => {
-                const active = m === mood
-                return (
-                  <button
-                    key={m}
-                    onClick={() => setMood(m)}
-                    className={
-                      'shrink-0 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[0.8rem] transition-colors ' +
-                      (active
-                        ? 'border-fuchsia bg-fuchsia text-white'
-                        : 'liquid-glass text-white/80 hover:text-white')
-                    }
-                  >
-                    {m}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
           {/* the input + Use this on top; Find me a prompt + label on the row below */}
-          <div className="mt-7 flex w-full max-w-xl flex-col items-center gap-4">
+          <div className="mt-9 flex w-full max-w-xl flex-col items-center gap-4">
             <div className="flex w-full gap-2">
               <input
                 value={feeling}

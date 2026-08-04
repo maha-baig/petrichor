@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import MoodSelector from './MoodSelector.jsx'
 import { getPrompts } from '../api.js'
 import { Reveal } from '../motion.jsx'
 
-export default function Spark({ mood, setMood, onChoose, autoRun = false, onAutoRunDone }) {
+export default function Spark({ mood, setMood, onChoose }) {
   const [prompts, setPrompts] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -21,15 +21,6 @@ export default function Spark({ mood, setMood, onChoose, autoRun = false, onAuto
       setLoading(false)
     }
   }
-
-  // auto-generate once when arriving from the hero's "Find me a prompt"
-  useEffect(() => {
-    if (autoRun) {
-      draw()
-      onAutoRunDone?.()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   return (
     <section>
