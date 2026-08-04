@@ -135,7 +135,8 @@ export default function App() {
         render={(k) => (k === 'app' ? appView : homeView)}
       />
 
-      <FeedbackMarkup />
+      {/* Annotation tool for design review — dev only, never ships. */}
+      {import.meta.env.DEV && <FeedbackMarkup />}
     </MotionConfig>
   )
 }
