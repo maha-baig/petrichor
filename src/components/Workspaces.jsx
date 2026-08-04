@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import CircularGallery from './CircularGallery.jsx'
+import { workspaceCards } from '../galleryCards.js'
 import {
   listWorkspaces,
   deleteWorkspace,
@@ -20,33 +22,6 @@ function when(iso) {
   return d.toLocaleDateString()
 }
 
-// The first few tiles of the board, as a glimpse of what's inside.
-function Thumbs({ images }) {
-  if (!images?.length) {
-    return (
-      <div className="flex h-24 items-center justify-center rounded-sm border border-dashed border-line text-xs text-muted">
-        no images yet
-      </div>
-    )
-  }
-  return (
-    <div className="flex h-24 gap-1.5 overflow-hidden">
-      {images.slice(0, 4).map((im) => (
-        <div
-          key={im.id}
-          className="h-24 flex-1 rounded-sm border border-line bg-cover bg-center"
-          style={{ backgroundImage: `url("${im.img}")` }}
-        />
-      ))}
-      {images.length > 4 && (
-        <div className="flex h-24 w-12 shrink-0 items-center justify-center rounded-sm border border-line text-xs text-muted">
-          +{images.length - 4}
-        </div>
-      )}
-    </div>
-  )
-}
-
 export default function Workspaces({ onOpen, onNew }) {
   const [items, setItems] = useState(null)
   const [confirming, setConfirming] = useState(null)
@@ -57,6 +32,23 @@ export default function Workspaces({ onOpen, onNew }) {
 
   const session = useSession()
   const needsSignIn = isSupabaseConfigured && session === null
+
+  // Building the cards paints a canvas per promptless workspace, and handing
+  // the gallery a new array tears down its WebGL scene — so only rebuild when
+  // the workspaces themselves actually change.
+  const cardsKey = (items || []).map((w) => `${w.id}:${w.images?.[0]?.id || ''}`).join('|')
+  const cards = useMemo(
+    () => workspaceCards(items || [], workspaceTitle),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [cardsKey],
+  )
+
+  // Labels under the cards sit on the page, not the picture, so they follow
+  // the theme rather than always being white.
+  const inkColor = useMemo(() => {
+    if (typeof window === 'undefined') return '#ede7df'
+    return getComputedStyle(document.documentElement).getPropertyValue('--body').trim() || '#ede7df'
+  }, [session])
 
   async function refresh() {
     setError(null)
@@ -113,8 +105,7 @@ export default function Workspaces({ onOpen, onNew }) {
 
   return (
     <section>
-      <Reveal order={0} className="mb-5 flex items-center gap-2.5">
-        <span className="h-2.5 w-2.5 rounded-full bg-fuchsia" />
+      <Reveal order={0} className="mb-5">
         <span className="font-grotesk text-[0.72rem] font-bold uppercase tracking-[0.22em] text-muted">
           Workspaces
         </span>
@@ -191,72 +182,79 @@ export default function Workspaces({ onOpen, onNew }) {
       )}
 
       {items?.length > 0 && (
-        <div className="mt-10 grid gap-5 sm:grid-cols-2">
-          {items.map((ws) => (
-            <article
-              key={ws.id}
-              className="group flex flex-col rounded-sm border border-line bg-card/40 p-5 transition-colors hover:border-fuchsia/60"
-            >
-              <button onClick={() => onOpen(ws.id)} className="text-left">
-                <h2 className="font-serif text-xl italic leading-snug text-ink">
-                  {workspaceTitle(ws)}
-                </h2>
-                <p className="mt-1 font-grotesk text-[0.7rem] font-bold uppercase tracking-[0.18em] text-muted">
-                  {ws.mood} · {when(ws.updatedAt)}
-                </p>
-                <div className="mt-4">
-                  <Thumbs images={ws.images} />
-                </div>
-                {ws.poem?.trim() ? (
-                  <p className="mt-4 line-clamp-3 whitespace-pre-line font-serif text-sm italic leading-relaxed text-muted">
-                    {ws.poem.trim().slice(0, 180)}
-                  </p>
-                ) : (
-                  <p className="mt-4 text-sm text-muted/70">no poem yet</p>
-                )}
-              </button>
+        <>
+          {/* The rooms themselves, as a ribbon you can push through. */}
+          <div className="-mx-6 mt-8 h-[62vh] min-h-[420px]">
+            <CircularGallery
+              items={cards}
+              onItemClick={(i) => items[i] && onOpen(items[i].id)}
+              bend={2}
+              borderRadius={0.04}
+              scrollEase={0.03}
+              textColor={inkColor}
+              font='italic 30px "Iowan Old Style", Georgia, serif'
+            />
+          </div>
+          <p className="text-center text-xs text-muted">
+            Drag to browse · click a card to open it · arrow keys and Enter work too
+          </p>
 
-              <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-line pt-3">
-                <button
-                  onClick={() => onOpen(ws.id)}
-                  className="rounded-full border border-line px-3 py-1 text-xs text-body transition-colors hover:border-fuchsia hover:text-fuchsia"
+          {/* Keeping and letting go. The gallery is for looking; this is for
+              the housekeeping that used to live on each card. */}
+          <details className="mt-10 border-t border-line pt-5">
+            <summary className="cursor-pointer font-grotesk text-[0.72rem] font-bold uppercase tracking-[0.18em] text-muted">
+              Manage ({items.length})
+            </summary>
+            <ul className="mt-4 flex flex-col gap-1">
+              {items.map((ws) => (
+                <li
+                  key={ws.id}
+                  className="group flex flex-wrap items-center gap-3 border-b border-line/60 py-2 text-sm"
                 >
-                  open
-                </button>
-                <button
-                  onClick={() => zip(ws)}
-                  disabled={busy === ws.id}
-                  className="rounded-full border border-line px-3 py-1 text-xs text-muted transition-colors hover:border-fuchsia hover:text-fuchsia disabled:opacity-60"
-                >
-                  {busy === ws.id ? 'zipping…' : 'download'}
-                </button>
-                <span className="ml-auto">
-                  {confirming === ws.id ? (
-                    <span className="flex items-center gap-2 text-xs">
-                      <span className="text-muted">delete for good?</span>
-                      <button
-                        onClick={() => remove(ws.id)}
-                        className="rounded-full bg-fuchsia px-3 py-1 font-bold text-white"
-                      >
-                        yes
-                      </button>
-                      <button onClick={() => setConfirming(null)} className="text-muted underline">
-                        no
-                      </button>
-                    </span>
-                  ) : (
+                  <button
+                    onClick={() => onOpen(ws.id)}
+                    className="text-left font-serif italic text-body hover:text-fuchsia"
+                  >
+                    {workspaceTitle(ws)}
+                  </button>
+                  <span className="font-grotesk text-[0.65rem] uppercase tracking-[0.16em] text-muted">
+                    {ws.mood} · {when(ws.updatedAt)}
+                  </span>
+                  <span className="ml-auto flex items-center gap-2">
                     <button
-                      onClick={() => setConfirming(ws.id)}
-                      className="rounded-full border border-transparent px-3 py-1 text-xs text-muted opacity-0 transition-opacity hover:text-fuchsia group-hover:opacity-100"
+                      onClick={() => zip(ws)}
+                      disabled={busy === ws.id}
+                      className="rounded-full border border-line px-3 py-1 text-xs text-muted transition-colors hover:border-fuchsia hover:text-fuchsia disabled:opacity-60"
                     >
-                      delete
+                      {busy === ws.id ? 'zipping…' : 'download'}
                     </button>
-                  )}
-                </span>
-              </div>
-            </article>
-          ))}
-        </div>
+                    {confirming === ws.id ? (
+                      <span className="flex items-center gap-2 text-xs">
+                        <span className="text-muted">delete for good?</span>
+                        <button
+                          onClick={() => remove(ws.id)}
+                          className="rounded-full bg-fuchsia px-3 py-1 font-bold text-white"
+                        >
+                          yes
+                        </button>
+                        <button onClick={() => setConfirming(null)} className="text-muted underline">
+                          no
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => setConfirming(ws.id)}
+                        className="rounded-full border border-transparent px-3 py-1 text-xs text-muted transition-colors hover:text-fuchsia"
+                      >
+                        delete
+                      </button>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        </>
       )}
     </section>
   )

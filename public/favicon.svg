@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+     stroke="#d6156a" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round">
+  <!-- The nav's feather, at tab size. Lucide `feather`, in Verse's fuchsia:
+       the light-theme pigment by default, the brighter one on dark tab strips. -->
+  <style>
+    @media (prefers-color-scheme: dark) { svg { stroke: #ff3e86 } }
+  </style>
+  <path d="M14.086 18.412A2 2 0 0112.67 19H5v-7.672a2 2 0 01.586-1.414L11.75 3.75a6 6 0 118.49 8.49z" />
+  <path d="M16 8 2 22" />
+  <path d="M17.488 15H9" />
+</svg>
