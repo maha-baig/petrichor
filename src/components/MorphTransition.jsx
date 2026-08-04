@@ -24,7 +24,9 @@ export default function MorphTransition({
   intensity = 0.55,
   aberration = 0.35,
   drift = 0.4,
-  overlayColor = '#05060a',
+  // Theme-aware by default: the wash follows paper, so light mode never gets
+  // a black pane laid over it mid-melt.
+  overlayColor = 'var(--melt-wash)',
   duration = 1.1,
   ease = 'power2.inOut',
   scale = 2.4,

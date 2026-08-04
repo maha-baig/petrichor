@@ -17,6 +17,9 @@
   --fuchsia: #d6156a;
   --cobalt: #2540ff;
   --amber: #c77b23;
+  /* The tab-melt wash. Soft-light, so it deepens toward its own colour:
+     on paper it must bloom, not bruise. */
+  --melt-wash: #efebe4;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -30,6 +33,7 @@
     --fuchsia: #ff3e86;
     --cobalt: #6e82ff;
     --amber: #e0982f;
+    --melt-wash: #05060a;
   }
 }
 :root[data-theme="dark"] {
@@ -43,6 +47,7 @@
   --fuchsia: #ff3e86;
   --cobalt: #6e82ff;
   --amber: #e0982f;
+  --melt-wash: #05060a;
 }
 :root[data-theme="light"] {
   --paper: #efebe4;
@@ -55,6 +60,9 @@
   --fuchsia: #d6156a;
   --cobalt: #2540ff;
   --amber: #c77b23;
+  /* The tab-melt wash. Soft-light, so it deepens toward its own colour:
+     on paper it must bloom, not bruise. */
+  --melt-wash: #efebe4;
 }
 
 /* Map brand vars into Tailwind tokens so utilities stay theme-aware.

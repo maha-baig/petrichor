@@ -99,7 +99,6 @@ export default function App() {
                 intensity={0.34}
                 aberration={0.2}
                 drift={0.26}
-                overlayColor="#05060a"
                 duration={0.55}
                 ease="power2.inOut"
                 scale={2.4}
@@ -158,7 +157,6 @@ export default function App() {
         intensity={0.3}
         aberration={0.16}
         drift={0.2}
-        overlayColor="#05060a"
         duration={0.75}
         ease="power2.inOut"
         scale={2.4}
