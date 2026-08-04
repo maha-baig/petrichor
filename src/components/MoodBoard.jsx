@@ -1,8 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { readMoodboard, illustrate } from '../api.js'
+import { readMoodboard, illustrate, searchImages } from '../api.js'
 import PoemOverlay from './PoemOverlay.jsx'
 import Masonry from './Masonry.jsx'
 import { useCapabilities } from '../useCapabilities.js'
+
+const SOURCE_LABELS = {
+  openverse: 'Openverse',
+  cosmos: 'Cosmos',
+  pexels: 'Pexels',
+  unsplash: 'Unsplash',
+}
 
 // Downscale any image file/blob to a modest JPEG data URL (keeps payloads small).
 // Resolves { src, aspect } — the masonry board needs the ratio to lay tiles out.
@@ -73,6 +80,7 @@ function extractPalette(dataUrls, onDone) {
 export default function MoodBoard({
   feeling,
   paletteNames = [],
+  searchTerms = [],
   tiles: tilesProp,
   onTilesChange,
   onPaletteChange,
@@ -98,12 +106,26 @@ export default function MoodBoard({
   const fileRef = useRef(null)
   const nextId = useRef(0)
 
+  // Gathering: candidates fetched from a search term, waiting to be chosen.
+  const [gatherTerm, setGatherTerm] = useState(null)
+  const [candidates, setCandidates] = useState([])
+  const [gathering, setGathering] = useState(false)
+  const [gatherError, setGatherError] = useState(null)
+  const [source, setSource] = useState(null)
+  const [taken, setTaken] = useState(() => new Set())
+
   // Reading the board and generating an image need llava (via Ollama) and
   // ComfyUI. Those exist on the poet's own machine but not on the hosted
   // build, so we ask the server what it can do rather than sniffing the URL —
   // that stays right when Petrichor runs on a LAN address or a custom host.
   const caps = useCapabilities()
   const aiAvailable = caps ? caps.moodboardVision && caps.imageGeneration : true
+
+  // Gathering, unlike the two above, is served by our own server — so it is
+  // available on the deployed site as well as locally.
+  const sources = caps?.imageSources || []
+  const canGather = !!caps?.imageSearch && searchTerms.length > 0
+  const activeSource = source || sources[0] || null
 
   // The plain data URLs — what the vision model and the palette extractor want.
   const images = useMemo(() => tiles.map((t) => t.img), [tiles])
@@ -126,6 +148,40 @@ export default function MoodBoard({
         aspect,
       })),
     ])
+  }
+
+  // A candidate becomes a tile by the same road a dropped file takes: fetch the
+  // bytes, then hand the blob to addFiles so it gets downscaled, measured and
+  // turned into a data URL. Everything downstream — the palette, the vision
+  // model, the saved workspace, the collage — then can't tell the difference.
+  async function addRemote(candidate) {
+    setGatherError(null)
+    try {
+      const res = await fetch(candidate.full)
+      if (!res.ok) throw new Error('That image would not load.')
+      const blob = await res.blob()
+      await addFiles([blob])
+      setTaken((prev) => new Set(prev).add(candidate.id))
+    } catch (e) {
+      setGatherError(e.message)
+    }
+  }
+
+  async function gather(term) {
+    setGatherTerm(term)
+    setGathering(true)
+    setGatherError(null)
+    setCandidates([])
+    try {
+      const r = await searchImages({ term, source: activeSource, count: 12 })
+      setCandidates(r.results || [])
+      setSource(r.source)
+      if (!r.results?.length) setGatherError('Nothing came back for that one.')
+    } catch (e) {
+      setGatherError(e.message)
+    } finally {
+      setGathering(false)
+    }
   }
 
   // paste images from anywhere on the page (e.g. copied from Cosmos)
@@ -197,7 +253,7 @@ export default function MoodBoard({
       </h3>
       <p className="mt-1 max-w-2xl text-sm text-muted">
         Gather images in Cosmos, then <b className="text-body">paste them here</b> (⌘V) or drop them
-        in.{' '}
+        in — or {canGather ? 'tap a search term below and pick from what comes back' : 'add them by hand'}.{' '}
         {aiAvailable
           ? 'The model reads the whole board and generates a new image in its spirit.'
           : 'The board and its palette work here; reading the board and generating an image need the local models, so they run when Petrichor is on your own machine.'}
@@ -223,6 +279,91 @@ export default function MoodBoard({
           onChange={(e) => addFiles(e.target.files)}
         />
       </div>
+
+      {/* Gather — the search terms, fetched for you. You still pick. */}
+      {canGather && (
+        <div className="mt-5">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
+            <span className="font-grotesk text-sm font-bold uppercase tracking-[0.08em] text-muted">
+              Or gather from a term
+            </span>
+            {sources.length > 1 && (
+              <select
+                value={activeSource || ''}
+                onChange={(e) => setSource(e.target.value)}
+                className="rounded-sm border border-line bg-card px-2 py-1 text-xs text-muted focus:border-fuchsia focus:outline-none"
+              >
+                {sources.map((s) => (
+                  <option key={s} value={s}>
+                    {SOURCE_LABELS[s] || s}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {searchTerms.map((term) => (
+              <button
+                key={term}
+                onClick={() => gather(term)}
+                disabled={gathering}
+                className={`rounded-full border px-3 py-1 text-sm transition-colors disabled:opacity-50 ${
+                  gatherTerm === term
+                    ? 'border-fuchsia text-fuchsia'
+                    : 'border-line text-muted hover:border-fuchsia hover:text-fuchsia'
+                }`}
+              >
+                {term}
+              </button>
+            ))}
+          </div>
+
+          {gathering && <p className="mt-3 text-sm text-muted">Looking for “{gatherTerm}”…</p>}
+
+          {candidates.length > 0 && (
+            <div className="mt-4">
+              <p className="mb-2 text-sm text-muted">
+                Click the ones you want. {candidates.length} found
+                {activeSource ? ` on ${SOURCE_LABELS[activeSource] || activeSource}` : ''}.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {candidates.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => addRemote(c)}
+                    title={[c.credit, c.license].filter(Boolean).join(' · ') || 'Add to the board'}
+                    className={`group relative h-24 w-24 overflow-hidden rounded-sm border transition-all ${
+                      taken.has(c.id)
+                        ? 'border-fuchsia opacity-40'
+                        : 'border-line hover:border-fuchsia hover:scale-[1.03]'
+                    }`}
+                  >
+                    <img
+                      src={c.thumb}
+                      alt={c.credit || ''}
+                      loading="lazy"
+                      className="h-full w-full object-cover"
+                    />
+                    {taken.has(c.id) && (
+                      <span className="absolute inset-0 grid place-items-center bg-ink/50 text-xs text-paper">
+                        added
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+              {candidates.some((c) => c.credit) && (
+                <p className="mt-2 text-xs text-muted">
+                  Hover for the photographer and licence — credit them if the poem goes out.
+                </p>
+              )}
+            </div>
+          )}
+
+          {gatherError && <p className="mt-3 text-sm text-fuchsia">{gatherError}</p>}
+        </div>
+      )}
 
       {images.length > 0 && (
         <>

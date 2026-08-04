@@ -304,6 +304,7 @@ export default function Workspace({ workspace, onChange, onBack }) {
       <MoodBoard
         feeling={ws.prompt?.text}
         paletteNames={(ws.words?.palette || []).map((c) => c.name)}
+        searchTerms={ws.words?.searchTerms || []}
         tiles={ws.images || []}
         onTilesChange={(tiles) => update({ images: tiles })}
         onPaletteChange={(p) => update({ boardPalette: p })}

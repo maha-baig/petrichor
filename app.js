@@ -9,6 +9,7 @@ import {
   buildMoodboardInstruction,
   buildPromptOptimizerMessages,
 } from './prompts.js'
+import { searchImages, availableSources, verify as verifyImageUrl } from './imageSearch.js'
 
 const PORT = process.env.PORT || 8787
 
@@ -447,6 +448,46 @@ app.post('/api/illustrate', async (req, res) => {
   }
 })
 
+// ── Gather: candidate images for the mood board ──────────────────────
+// Unlike the vision reading and ComfyUI below, these run entirely inside
+// this process, so they work on the deployed site too.
+app.post('/api/images', async (req, res) => {
+  const { term, source, count } = req.body || {}
+  if (!term || !String(term).trim())
+    return res.status(400).json({ error: 'A search term is required.' })
+  try {
+    return res.json(await searchImages({ term, source, count }))
+  } catch (err) {
+    console.error(err.message)
+    return res.status(502).json({ error: err.message })
+  }
+})
+
+// Fetch a candidate on the browser's behalf. Only URLs we signed in
+// imageSearch.js get through — otherwise this is an open relay, and the
+// browser could be made to point it at anything reachable from the server.
+app.get('/api/images/proxy', async (req, res) => {
+  const { url, sig } = req.query
+  if (!verifyImageUrl(url, sig)) return res.status(403).end()
+
+  try {
+    const upstream = await fetch(url, { headers: { 'User-Agent': 'petrichor/0.1' } })
+    if (!upstream.ok) return res.status(502).end()
+
+    const type = upstream.headers.get('content-type') || ''
+    if (!type.startsWith('image/')) return res.status(415).end()
+
+    const buf = Buffer.from(await upstream.arrayBuffer())
+    if (buf.length > 12_000_000) return res.status(413).end() // Vercel caps the response anyway
+
+    res.set('Content-Type', type)
+    res.set('Cache-Control', 'public, max-age=86400')
+    return res.send(buf)
+  } catch {
+    return res.status(502).end()
+  }
+})
+
 // Local-only services (Ollama vision, ComfyUI) don't exist on a serverless
 // host. The client reads this to hide what can't work here.
 const LOCAL_SERVICES = process.env.PETRICHOR_LOCAL_SERVICES !== 'false'
@@ -461,6 +502,8 @@ app.get('/api/health', (_req, res) =>
       text: true,            // prompts, words, word map, reviewer
       moodboardVision: LOCAL_SERVICES,  // needs Ollama + llava
       imageGeneration: LOCAL_SERVICES,  // needs ComfyUI
+      imageSearch: availableSources().length > 0,  // works here AND deployed
+      imageSources: availableSources(),
     },
   }),
 )

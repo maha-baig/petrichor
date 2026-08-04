@@ -188,6 +188,7 @@ export default function Words({ prompt, mood, onBack }) {
         <MoodBoard
           feeling={prompt.text}
           paletteNames={(data.palette || []).map((c) => c.name)}
+          searchTerms={data.searchTerms || []}
         />
       )}
     </section>
