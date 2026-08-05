@@ -102,7 +102,7 @@ export default function Hero({ onEnter }) {
                 onChange={(e) => setFeeling(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && useFeeling()}
                 placeholder="the ache of a summer that's ending"
-                className="liquid-glass min-w-0 flex-1 rounded-full px-6 py-2.5 font-grotesk text-white placeholder:text-white/40 focus:outline-none"
+                className="liquid-glass liquid-glass--fuchsia min-w-0 flex-1 rounded-full px-6 py-2.5 font-grotesk text-white placeholder:text-white/40 focus:outline-none"
               />
               <button
                 onClick={useFeeling}
