@@ -1,67 +1,93 @@
 import { useEffect, useRef, useState } from 'react'
 import TopNav from './TopNav.jsx'
 
-const VIDEO_SRC =
-  'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260328_115001_bcdaa3b4-03de-47e7-ad63-ae3e392c32d4.mp4'
-
-const FADE_MS = 500
-const TAIL_S = 0.55
+// The hero motion is a blooming-flower timelapse, delivered as a WebP frame
+// sequence (public/hero/f_001..f_274) played on a canvas rather than a <video>.
+// Frames autoplay-loop everywhere without the codec/autoplay quirks of <video>,
+// and there's no external CDN dependency — the clip ships with the site.
+const FRAME_COUNT = 274
+const FPS = 20
+const FADE_MS = 500 // gentle cross-fade at the loop seam, matching the old video
+const CYCLE_MS = (FRAME_COUNT / FPS) * 1000
+// Vertical framing bias: 0 centres the bloom; positive nudges it down (echoing
+// the old clip's translate-y-[17%]). The new clip is centred, so 0 reads best.
+const Y_BIAS = 0
+const frameUrl = (i) => `/hero/f_${String(i + 1).padStart(3, '0')}.webp`
 
 export default function Hero({ onEnter }) {
   const [feeling, setFeeling] = useState('')
-  const videoRef = useRef(null)
+  const canvasRef = useRef(null)
   const rafRef = useRef(0)
-  const fadingOutRef = useRef(false)
 
   useEffect(() => {
-    const video = videoRef.current
-    if (!video) return
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
 
-    function fadeTo(target) {
-      cancelAnimationFrame(rafRef.current)
-      const start = performance.now()
-      const from = parseFloat(video.style.opacity || '0')
-      const step = (now) => {
-        const t = Math.min(1, (now - start) / FADE_MS)
-        video.style.opacity = String(from + (target - from) * t)
-        if (t < 1) rafRef.current = requestAnimationFrame(step)
-      }
-      rafRef.current = requestAnimationFrame(step)
-    }
-    function onLoaded() {
-      video.style.opacity = '0'
-      video.play().catch(() => {})
-      fadingOutRef.current = false
-      fadeTo(1)
-    }
-    function onTimeUpdate() {
-      if (!video.duration) return
-      if (video.duration - video.currentTime <= TAIL_S && !fadingOutRef.current) {
-        fadingOutRef.current = true
-        fadeTo(0)
-      }
-    }
-    function onEnded() {
-      video.style.opacity = '0'
-      setTimeout(() => {
-        video.currentTime = 0
-        video.play().catch(() => {})
-        fadingOutRef.current = false
-        fadeTo(1)
-      }, 100)
+    const reduce =
+      window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false
+
+    // Preload every frame; decode() best-effort so the first paint never blanks.
+    const frames = Array.from({ length: FRAME_COUNT }, (_, i) => {
+      const img = new Image()
+      img.src = frameUrl(i)
+      img.decode?.().catch(() => {})
+      return img
+    })
+
+    // Cover-fit the current frame into the canvas box (like object-cover).
+    function draw(img) {
+      if (!img || !img.complete || !img.naturalWidth) return
+      const dpr = Math.min(window.devicePixelRatio || 1, 2)
+      const cw = canvas.clientWidth
+      const ch = canvas.clientHeight
+      if (canvas.width !== Math.round(cw * dpr)) canvas.width = Math.round(cw * dpr)
+      if (canvas.height !== Math.round(ch * dpr)) canvas.height = Math.round(ch * dpr)
+      const scale = Math.max((cw * dpr) / img.naturalWidth, (ch * dpr) / img.naturalHeight)
+      const dw = img.naturalWidth * scale
+      const dh = img.naturalHeight * scale
+      const dx = (canvas.width - dw) / 2
+      const dy = (canvas.height - dh) / 2 + Y_BIAS * canvas.height
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      ctx.drawImage(img, dx, dy, dw, dh)
     }
 
-    video.style.opacity = '0'
-    video.addEventListener('loadeddata', onLoaded)
-    video.addEventListener('timeupdate', onTimeUpdate)
-    video.addEventListener('ended', onEnded)
-    if (video.readyState >= 2) onLoaded()
-    return () => {
-      cancelAnimationFrame(rafRef.current)
-      video.removeEventListener('loadeddata', onLoaded)
-      video.removeEventListener('timeupdate', onTimeUpdate)
-      video.removeEventListener('ended', onEnded)
+    let start = performance.now()
+    let lastIndex = -1
+
+    function tick(now) {
+      const t = (now - start) % CYCLE_MS
+      const index = Math.min(FRAME_COUNT - 1, Math.floor((t / 1000) * FPS))
+      if (index !== lastIndex) {
+        draw(frames[index])
+        lastIndex = index
+      }
+      // Fade in from the seam, fade back out just before it, so the loop point
+      // is a soft dip to black rather than a hard cut.
+      let opacity = 1
+      if (t < FADE_MS) opacity = t / FADE_MS
+      else if (CYCLE_MS - t < FADE_MS) opacity = (CYCLE_MS - t) / FADE_MS
+      canvas.style.opacity = String(opacity)
+      rafRef.current = requestAnimationFrame(tick)
     }
+
+    // Reduced motion: hold a single open-bloom frame, no animation.
+    if (reduce) {
+      const still = frames[Math.floor(FRAME_COUNT * 0.55)]
+      const paint = () => (still.complete ? (draw(still), (canvas.style.opacity = '1')) : still.addEventListener('load', paint, { once: true }))
+      paint()
+      return () => cancelAnimationFrame(rafRef.current)
+    }
+
+    const first = frames[0]
+    const begin = () => {
+      start = performance.now()
+      rafRef.current = requestAnimationFrame(tick)
+    }
+    if (first.complete) begin()
+    else first.addEventListener('load', begin, { once: true })
+
+    return () => cancelAnimationFrame(rafRef.current)
   }, [])
 
   const findPrompt = () => onEnter?.({ tab: 'spark' })
@@ -69,14 +95,10 @@ export default function Hero({ onEnter }) {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-black">
-      <video
-        ref={videoRef}
-        src={VIDEO_SRC}
-        muted
-        playsInline
-        autoPlay
-        preload="auto"
-        className="absolute inset-0 h-full w-full translate-y-[17%] object-cover"
+      <canvas
+        ref={canvasRef}
+        aria-hidden="true"
+        className="absolute inset-0 h-full w-full"
         style={{ opacity: 0 }}
       />
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/60 via-black/35 to-black/70" />
