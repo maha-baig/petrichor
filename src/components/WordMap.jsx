@@ -176,7 +176,7 @@ export default function WordMap({ mood, setMood }) {
           </Reveal>
         )}
 
-        <Reveal order={4} className="flex flex-col gap-2 sm:flex-row">
+        <Reveal order={4} className="flex flex-col gap-4 sm:flex-row sm:gap-2">
           <input
             value={feeling}
             onChange={(e) => setFeeling(e.target.value)}
