@@ -106,7 +106,7 @@ export default function SignIn({ title = 'Keep your work', blurb }) {
         {blurb ||
           'Sign in and every workspace, with its words, its images, its poem, follows you to any browser. No password: a link arrives by email.'}
       </p>
-      <form onSubmit={send} className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center">
+      <form onSubmit={send} className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-2">
         <input
           type="email"
           required
