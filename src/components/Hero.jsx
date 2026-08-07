@@ -104,6 +104,22 @@ export default function Hero({ onEnter }) {
       onPointerLeave={hideGlow}
       onPointerCancel={hideGlow}
     >
+      {/* The clip's background isn't black — it sits at 16–20, a plateau across
+          some 87% of the frame — so the video's own rectangle reads as a panel
+          a shade lighter than the page, with a hard edge along the top where it
+          begins. Pull the black point down to meet the page: everything at or
+          below 20 goes to true black, white stays white, and the flower keeps
+          its dots. (255/(255-20) = 1.085 gain, less a 20/255 pedestal.) */}
+      <svg aria-hidden="true" width="0" height="0" className="absolute">
+        <filter id="hero-black-point" colorInterpolationFilters="sRGB">
+          <feComponentTransfer>
+            <feFuncR type="linear" slope="1.085" intercept="-0.0784" />
+            <feFuncG type="linear" slope="1.085" intercept="-0.0784" />
+            <feFuncB type="linear" slope="1.085" intercept="-0.0784" />
+          </feComponentTransfer>
+        </filter>
+      </svg>
+
       <video
         ref={videoRef}
         src={BG_SRC}
@@ -114,7 +130,7 @@ export default function Hero({ onEnter }) {
         preload="auto"
         aria-hidden="true"
         className="absolute inset-0 h-full w-full translate-y-[14%] scale-[1.5] object-contain [mix-blend-mode:screen] sm:translate-y-[32%] sm:scale-100 sm:object-cover sm:[mix-blend-mode:normal]"
-        style={{ opacity: 0 }}
+        style={{ opacity: 0, filter: 'url(#hero-black-point)' }}
       />
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/60 via-black/35 to-black/70" />
 
