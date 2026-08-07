@@ -113,7 +113,7 @@ export default function SignIn({ title = 'Keep your work', blurb }) {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@example.com"
-          className="w-full max-w-sm rounded-sm border border-line bg-card px-4 py-2.5 text-body placeholder:text-muted/70 focus:border-fuchsia focus:outline-none"
+          className="w-full max-w-sm rounded-full border border-line bg-card px-6 py-2.5 text-body placeholder:text-muted/70 focus:border-fuchsia focus:outline-none"
         />
         <button
           type="submit"

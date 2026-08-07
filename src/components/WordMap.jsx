@@ -181,7 +181,7 @@ export default function WordMap({ mood, setMood }) {
             value={feeling}
             onChange={(e) => setFeeling(e.target.value)}
             placeholder="the quiet after everyone leaves"
-            className="flex-1 rounded-sm border border-line bg-card px-4 py-2.5 text-body placeholder:text-muted/70 focus:border-fuchsia focus:outline-none"
+            className="flex-1 rounded-full border border-line bg-card px-6 py-2.5 text-body placeholder:text-muted/70 focus:border-fuchsia focus:outline-none"
             onKeyDown={(e) => e.key === 'Enter' && draw()}
           />
           <button

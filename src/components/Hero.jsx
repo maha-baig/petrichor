@@ -113,7 +113,7 @@ export default function Hero({ onEnter }) {
         loop={false}
         preload="auto"
         aria-hidden="true"
-        className="absolute inset-0 h-full w-full translate-y-[32%] object-cover"
+        className="absolute inset-0 h-full w-full translate-y-[16%] object-contain sm:translate-y-[32%] sm:object-cover"
         style={{ opacity: 0 }}
       />
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/60 via-black/35 to-black/70" />
