@@ -159,8 +159,13 @@ export default function Hero({ onEnter }) {
         <main className="relative z-10 flex flex-1 flex-col items-center justify-start px-6 pb-12 pt-2 text-center">
           {/* Fluid on phones so the one-line title fills the width without
               overflowing, capped at 3rem (=text-5xl) so it joins the sm size
-              continuously. Fixed sizes from sm up. */}
-          <h1 className="whitespace-nowrap font-serif text-[min(11vw,3rem)] italic tracking-tight text-white sm:text-5xl md:text-6xl lg:text-7xl">
+              continuously. Fixed sizes from sm up.
+              The leading is set here because a bare `text-[…]` carries only a
+              size: without it the title inherits the body's, and a display line
+              sits in a box half again its own height, which reads as a hole
+              between the title and the field beneath it. From sm up the named
+              sizes bring their own leading, so hand it back to them. */}
+          <h1 className="whitespace-nowrap font-serif text-[min(11vw,3rem)] italic leading-[1.06] tracking-tight text-white sm:text-5xl sm:leading-none md:text-6xl lg:text-7xl">
             Where poems begin
           </h1>
 
