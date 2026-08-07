@@ -141,7 +141,10 @@ export default function Hero({ onEnter }) {
 
         {/* Hero content = the app's entry, filmed — compact, top-aligned */}
         <main className="relative z-10 flex flex-1 flex-col items-center justify-start px-6 pb-12 pt-2 text-center">
-          <h1 className="whitespace-nowrap font-serif text-5xl italic tracking-tight text-white md:text-6xl lg:text-7xl">
+          {/* Fluid on phones so the one-line title fills the width without
+              overflowing, capped at 3rem (=text-5xl) so it joins the sm size
+              continuously. Fixed sizes from sm up. */}
+          <h1 className="whitespace-nowrap font-serif text-[min(11vw,3rem)] italic tracking-tight text-white sm:text-5xl md:text-6xl lg:text-7xl">
             Where poems begin
           </h1>
 

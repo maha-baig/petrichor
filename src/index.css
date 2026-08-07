@@ -85,6 +85,13 @@
 
 html, body, #root { height: 100%; }
 
+/* Mobile: shrink the root font so every rem-based size — body text, headings,
+   input and button padding, gaps — scales down together below Tailwind's sm
+   breakpoint (640px). One lever instead of touching each component. */
+@media (max-width: 639px) {
+  html { font-size: 85%; }
+}
+
 body {
   margin: 0;
   background: var(--paper);
