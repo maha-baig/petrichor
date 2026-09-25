@@ -340,7 +340,8 @@ Reply: {"answer":"<your answer>"}`,
   }
   const system = `You are a careful editor helping the author of ${form}. ${HANDS_OFF}
 
-${tasks[mode]}`
+${tasks[mode]}
+Reply with that JSON object only.`
   const user = `${mode === 'ask' ? `Question: ${question}\n\n` : ''}Passage:
 """
 ${text}
@@ -358,7 +359,7 @@ export function buildTitleMessages({ text, current = '', bookTitle = '', neighbo
 Offer five titles, short (one to five words), drawn from the ${kind}'s own images and words rather than
 summaries of its plot. Match the tone of the other titles if there are any. No numbering, no quotes, no
 "Chapter" prefix.
-Reply: {"titles":["...","...","...","...","..."]}`
+Reply with JSON only: {"titles":["...","...","...","...","..."]}`
   const user = `Book: ${bookTitle || '(untitled)'}
 Current title: ${current || '(none)'}
 Other titles in the book: ${neighbours.filter(Boolean).join(' · ') || '(none yet)'}
