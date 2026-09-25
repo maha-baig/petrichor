@@ -83,6 +83,24 @@ engine can be tuned without touching the UI.
 
 ---
 
+### Notion import
+
+Books can be imported straight from Notion (**Books → Import from Notion**, or **From Notion** inside a
+book). A page with sub-pages becomes a book whose chapters are those sub-pages; a page without them is split
+at its headings. Line breaks, indents, bold/italic, quotes, lists and dividers come across.
+
+1. Create an **internal** integration at [notion.so/profile/integrations](https://www.notion.so/profile/integrations)
+   with **Read content** only, and copy its secret.
+2. Set `NOTION_TOKEN` (that secret) and `NOTION_OWNER_EMAIL` (the email you sign in to Petrichor with) in `.env`
+   and in Vercel → Settings → Environment Variables (Production).
+3. In Notion, open each page you want → **•••** → **Connections** → add the integration. Sharing a parent page
+   shares everything under it.
+
+The server checks every Notion request against your Supabase session, so only that one account can read your
+Notion through the app.
+
+---
+
 ## Running it
 
 ```bash

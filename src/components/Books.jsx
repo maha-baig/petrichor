@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { DownloadCloud, Plus, Upload } from 'lucide-react'
+import { DownloadCloud, FileUp, Plus, Upload } from 'lucide-react'
 import { useSession } from '../auth.jsx'
 import BookCover from './BookCover.jsx'
 import { bookTitle, createWork, listWorks } from '../library.js'
 import { BACKUP_EVERY_DAYS, daysSince, downloadBackup, lastBackupAt, restoreBackup } from '../backup.js'
+import { ACCEPT, importAsNewBook } from '../importDoc.js'
+import { importNotionAsBook } from '../notionImport.js'
+import NotionPicker from './NotionPicker.jsx'
 
 const fmt = (n) => Number(n || 0).toLocaleString()
 
@@ -18,6 +21,36 @@ export default function Books({ onOpen }) {
   const [notice, setNotice] = useState(null)
   const [restoreFile, setRestoreFile] = useState(null) // chosen, awaiting confirmation
   const fileInput = useRef(null)
+  const docInput = useRef(null)
+  const [notionOpen, setNotionOpen] = useState(false)
+
+  async function fromNotion(page, choice = {}) {
+    setNotionOpen(false)
+    setError(null)
+    setNotice(null)
+    setBackup('Starting…')
+    try {
+      const r = await importNotionAsBook(page.id, setBackup, choice)
+      onOpen(r.work.id)
+    } catch (e) {
+      setError(`Couldn't import “${page.title}” from Notion: ${e.message}`)
+      setBackup(null)
+    }
+  }
+
+  // A document becomes a new book, split into chapters at its headings.
+  async function importDoc(file) {
+    setError(null)
+    setNotice(null)
+    setBackup('Starting…')
+    try {
+      const r = await importAsNewBook(file, setBackup)
+      onOpen(r.work.id)
+    } catch (e) {
+      setError(`Couldn't import “${file.name}”: ${e.message}`)
+      setBackup(null)
+    }
+  }
 
   function load() {
     return listWorks().then(setWorks)
@@ -93,10 +126,38 @@ export default function Books({ onOpen }) {
 
   return (
     <section>
+      {notionOpen && <NotionPicker verb="Import as a book" onPick={fromNotion} onClose={() => setNotionOpen(false)} />}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <h1 className="font-serif text-4xl italic leading-tight text-ink sm:text-5xl">Your books</h1>
         {works && (
           <div className="flex flex-wrap items-center gap-2">
+            <input
+              ref={docInput}
+              type="file"
+              accept={ACCEPT}
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                e.target.value = ''
+                if (f) importDoc(f)
+              }}
+            />
+            <button
+              onClick={() => docInput.current?.click()}
+              disabled={!!backup}
+              title="Word (.docx), Markdown, plain text or HTML. Headings become chapters."
+              className="inline-flex items-center gap-1.5 rounded-full border border-line px-4 py-2 text-sm text-body transition-colors hover:border-fuchsia hover:text-fuchsia disabled:opacity-50"
+            >
+              <FileUp size={15} /> Import document
+            </button>
+            <button
+              onClick={() => setNotionOpen(true)}
+              disabled={!!backup}
+              className="inline-flex items-center gap-1.5 rounded-full border border-line px-4 py-2 text-sm text-body transition-colors hover:border-fuchsia hover:text-fuchsia disabled:opacity-50"
+            >
+              <span aria-hidden className="grid h-4 w-4 place-items-center rounded-[3px] border border-current font-serif text-[0.6rem] font-bold leading-none">N</span>
+              Import from Notion
+            </button>
             <button
               onClick={backUp}
               disabled={!!backup || !works.length}

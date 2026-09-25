@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { ArrowDown, ArrowUp, BookOpen, Download, ImagePlus, Plus, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, BookOpen, Download, FileUp, ImagePlus, Plus, Trash2 } from 'lucide-react'
 import BookCover from './BookCover.jsx'
 import {
   bookTitle,
@@ -16,6 +16,9 @@ import {
   uploadCover,
 } from '../library.js'
 import { TRIMS, downloadEpub, downloadText, printManuscript } from '../manuscriptExport.js'
+import { ACCEPT, importIntoBook } from '../importDoc.js'
+import { importNotionIntoBook } from '../notionImport.js'
+import NotionPicker from './NotionPicker.jsx'
 
 const STATUS_DOT = { draft: 'bg-line', revising: 'bg-amber', final: 'bg-fuchsia' }
 const COVER_COLORS = ['#2a1f2d', '#1f2a2a', '#3a2418', '#1d2438', '#33202a', '#23301f', '#6b1d3a', '#c9bfae']
@@ -122,6 +125,9 @@ export default function Book({ workId, onBack, onWrite }) {
   const [busy, setBusy] = useState(null)
   const [confirming, setConfirming] = useState(null) // piece id, or 'book'
   const fileInput = useRef(null)
+  const docInput = useRef(null)
+  const [importing, setImporting] = useState(null) // progress text
+  const [notionOpen, setNotionOpen] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -203,6 +209,39 @@ export default function Book({ workId, onBack, onWrite }) {
     }
   }
 
+  // A document's chapters go on after the last thing in the contents.
+  async function onDocFile(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setError(null)
+    setImporting('Starting…')
+    try {
+      const last = pieces.reduce((m, p) => Math.max(m, p.position), -1)
+      const r = await importIntoBook(work.id, last, file, setImporting)
+      setPieces((ps) => [...ps, ...r.pieces])
+    } catch (err) {
+      setError(`Couldn't import “${file.name}”: ${err.message}`)
+    } finally {
+      setImporting(null)
+    }
+  }
+
+  async function fromNotion(page, choice = {}) {
+    setNotionOpen(false)
+    setError(null)
+    setImporting('Starting…')
+    try {
+      const last = pieces.reduce((m, p) => Math.max(m, p.position), -1)
+      const r = await importNotionIntoBook(work.id, last, page.id, setImporting, choice)
+      setPieces((ps) => [...ps, ...r.pieces])
+    } catch (err) {
+      setError(`Couldn't import “${page.title}” from Notion: ${err.message}`)
+    } finally {
+      setImporting(null)
+    }
+  }
+
   async function onCoverFile(e) {
     const file = e.target.files?.[0]
     e.target.value = ''
@@ -222,6 +261,7 @@ export default function Book({ workId, onBack, onWrite }) {
 
   return (
     <section className="animate-rise">
+      {notionOpen && <NotionPicker verb="Add as chapters" onPick={fromNotion} onClose={() => setNotionOpen(false)} />}
       <button onClick={onBack} className="text-sm text-muted hover:text-fuchsia">
         ← all books
       </button>
@@ -340,6 +380,23 @@ export default function Book({ workId, onBack, onWrite }) {
         <div className="flex flex-wrap items-end justify-between gap-3 border-b border-line pb-3">
           <h2 className="font-serif text-3xl italic text-ink">Contents</h2>
           <div className="flex flex-wrap gap-2">
+            <input ref={docInput} type="file" accept={ACCEPT} onChange={onDocFile} className="hidden" />
+            <button
+              onClick={() => docInput.current?.click()}
+              disabled={!!busy || !!importing}
+              title="Add chapters from a Word, Markdown, text or HTML file. Headings become chapters."
+              className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs font-bold text-body transition-colors hover:border-fuchsia hover:text-fuchsia disabled:opacity-60"
+            >
+              <FileUp size={13} /> Import
+            </button>
+            <button
+              onClick={() => setNotionOpen(true)}
+              disabled={!!busy || !!importing}
+              title="Add chapters from a Notion page. Its sub-pages become chapters."
+              className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs font-bold text-body transition-colors hover:border-fuchsia hover:text-fuchsia disabled:opacity-60"
+            >
+              From Notion
+            </button>
             {[
               ['part', 'Part'],
               ['chapter', 'Chapter'],
@@ -355,6 +412,8 @@ export default function Book({ workId, onBack, onWrite }) {
             ))}
           </div>
         </div>
+
+        {importing && <p className="mt-4 font-serif italic text-muted" role="status">{importing}</p>}
 
         {contents.length === 0 && (
           <div className="mt-6 rounded-sm border border-dashed border-line p-10 text-center">

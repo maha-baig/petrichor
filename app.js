@@ -10,6 +10,7 @@ import {
   buildPromptOptimizerMessages,
 } from './prompts.js'
 import { searchImages, availableSources, verify as verifyImageUrl } from './imageSearch.js'
+import { notionRoutes } from './notion.js'
 
 const PORT = process.env.PORT || 8788
 
@@ -494,6 +495,9 @@ app.get('/api/images/proxy', async (req, res) => {
 // Local-only services (Ollama vision, ComfyUI) don't exist on a serverless
 // host. The client reads this to hide what can't work here.
 const LOCAL_SERVICES = process.env.PETRICHOR_LOCAL_SERVICES !== 'false'
+
+// Notion import (owner-only; see notion.js)
+notionRoutes(app)
 
 app.get('/api/health', (_req, res) =>
   res.json({

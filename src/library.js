@@ -166,11 +166,12 @@ export async function listWorks() {
 
 const COVER_COLORS = ['#2a1f2d', '#1f2a2a', '#3a2418', '#1d2438', '#33202a', '#23301f']
 
-export async function createWork() {
+/** A new book. `blank: false` skips the empty first chapter (an import brings its own). */
+export async function createWork({ title = '', blank = true } = {}) {
   const uid = await userId()
   const cover_color = COVER_COLORS[Math.floor(Math.random() * COVER_COLORS.length)]
-  const work = check(await supabase.from('works').insert({ user_id: uid, cover_color }).select().single())
-  await createPiece(work.id, { kind: 'chapter', position: 0 })
+  const work = check(await supabase.from('works').insert({ user_id: uid, cover_color, title }).select().single())
+  if (blank) await createPiece(work.id, { kind: 'chapter', position: 0 })
   return work
 }
 
@@ -207,12 +208,13 @@ export async function getPiece(id) {
   return check(await supabase.from('pieces').select('*').eq('id', id).maybeSingle())
 }
 
-export async function createPiece(workId, { kind = 'chapter', position = 0, title = '' } = {}) {
+export async function createPiece(workId, { kind = 'chapter', position = 0, title = '', body = '' } = {}) {
   const uid = await userId()
+  const words = body ? countWords(htmlToText(body)) : 0
   return check(
     await supabase
       .from('pieces')
-      .insert({ work_id: workId, user_id: uid, kind, position, title })
+      .insert({ work_id: workId, user_id: uid, kind, position, title, body, words })
       .select('id, work_id, kind, title, words, status, position, updated_at')
       .single(),
   )
