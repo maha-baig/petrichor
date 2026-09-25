@@ -10,7 +10,7 @@ import {
 } from '../store.js'
 import { downloadWorkspaceZip } from '../download.js'
 import { isSupabaseConfigured } from '../lib/supabase.js'
-import SignIn, { useSession, signOut } from '../auth.jsx'
+import { useSession } from '../auth.jsx'
 import { Reveal } from '../motion.jsx'
 import { useTheme } from '../theme.js'
 
@@ -146,27 +146,12 @@ export default function Workspaces({ onOpen, onNew }) {
       <Reveal as="p" order={2} className="mt-4 max-w-xl text-muted">
         Each prompt you choose keeps its own room: its words, the images you gathered, the poem
         that came of it.{' '}
-        {session
-          ? 'Signed in, so they follow you to any browser.'
-          : needsSignIn
-            ? 'Sign in and they follow you to any browser.'
-            : 'Nothing here leaves your browser.'}
+        {session ? 'Saved to your account, so they follow you to any browser.' : 'Nothing here leaves your browser.'}
       </Reveal>
 
-      {session && (
-        <p className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted">
-          <span>{session.user.email}</span>
-          <span>·</span>
-          <button onClick={signOut} className="underline hover:text-fuchsia">
-            sign out
-          </button>
-        </p>
-      )}
 
       {error && <p className="mt-4 text-sm text-fuchsia">{error}</p>}
 
-      {/* Signed out, with Supabase configured: the list is behind the link. */}
-      {needsSignIn && <SignIn />}
 
       {/* Signed in, but work is still sitting in this browser from before. */}
       {session && waiting > 0 && (

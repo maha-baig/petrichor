@@ -238,3 +238,55 @@ textarea.liquid-glass--fuchsia:focus {
 @media (prefers-reduced-motion: reduce) {
   .word-bloom { animation: none; opacity: 1; transform: none; }
 }
+
+/* ── Library focus mode ───────────────────────────────────────────────
+   The entrance animations hold their end state (fill: both), and even an
+   identity transform or filter turns an ancestor into the containing block
+   for position: fixed. While writing in focus, drop them so the page can
+   truly fill the screen. */
+.writing-focus .tab-enter,
+.writing-focus .animate-rise,
+.writing-focus .reveal-rise {
+  animation: none !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+/* The writing page is the focus: a ring around it while typing is noise.
+   (Unlayered, like the global :focus-visible rule it overrides.) */
+.page-surface:focus-visible { outline: none; }
+
+/* ── Chapter page: the text inside the editor (and history previews) ───── */
+.chapter-prose {
+  font-family: var(--font-serif);
+  font-size: 1.14rem;
+  line-height: 1.8;
+  color: var(--body);
+  /* every space she types is kept: indents in a poem are part of the poem */
+  white-space: pre-wrap;
+  min-height: 50vh;
+}
+.chapter-prose p { margin: 0 0 1em; }
+.chapter-prose h2 { font-size: 1.6rem; font-style: italic; line-height: 1.25; margin: 1.6em 0 0.6em; color: var(--ink); }
+.chapter-prose h3 { font-family: var(--font-grotesk); font-size: 0.8rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; margin: 1.8em 0 0.8em; color: var(--muted); }
+.chapter-prose blockquote { border-left: 2px solid var(--fuchsia); margin: 1.2em 0; padding: 0.1em 0 0.1em 1.2em; font-style: italic; color: var(--muted); }
+.chapter-prose ul, .chapter-prose ol { padding-left: 1.6em; margin: 0 0 1em; }
+.chapter-prose ul { list-style: disc; }
+.chapter-prose ol { list-style: decimal; }
+.chapter-prose li p { margin: 0 0 0.3em; }
+.chapter-prose a { color: var(--fuchsia); text-decoration: underline; }
+/* a scene break reads as a quiet row of asterisms, not a rule */
+.chapter-prose hr { border: 0; margin: 2em 0; text-align: center; height: auto; overflow: visible; }
+.chapter-prose hr::after { content: "*   *   *"; white-space: pre; color: var(--muted); letter-spacing: 0.2em; }
+.chapter-prose hr.ProseMirror-selectednode::after { color: var(--fuchsia); }
+.chapter-prose p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--muted);
+  opacity: 0.55;
+  font-style: italic;
+}
+.writing-focus .chapter-prose { font-size: 1.22rem; }
+.chapter-prose:focus-visible { outline: none; }

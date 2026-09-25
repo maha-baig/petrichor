@@ -1,17 +1,94 @@
 import { useEffect, useRef, useState } from 'react'
+import { animate, motion, useMotionValue, useMotionValueEvent, useReducedMotion, useSpring, useTransform } from 'framer-motion'
+import { ArrowRight } from 'lucide-react'
 import TopNav from './TopNav.jsx'
 
-// The hero background is a shimmering dot-matrix flower, shipped with the site
-// as a local, self-contained clip (public/hero-bg.mp4). It plays as a <video>
-// rather than a WebP frame sequence: this clip's high-frequency sparkle doesn't
-// compress to frames well (8-12MB of WebP vs a 1.8MB 720p h264), and a
-// progressive video starts before it's fully downloaded.
-const BG_SRC = '/hero-bg.mp4'
+// The hero background: pink flowers blooming out of true black, traced with
+// fine white measuring lines. A local, self-contained clip (public/hero-flowers.mp4,
+// 600px portrait, 24fps, no audio, faststart so it plays before it's fully
+// downloaded). The previous dot-matrix flower is still at public/hero-bg.mp4.
+const BG_SRC = '/hero-flowers.mp4'
 const FADE_MS = 500
 const TAIL_S = 0.5 // fade out this long before the end, then loop with a fade in
 
+// The hero's words, typed out one after another. `cps` is characters per
+// second: the title is struck slowly, the prose runs on quicker.
+const LINES = [
+  { key: 'title', text: 'Where flowers bloom', cps: 14, pause: 0.45 },
+  {
+    key: 'lede',
+    text: 'A quiet place to write: poems, books, and the long work in between. Shape chapters into a book, keep every draft, and find a way in when the page is blank.',
+    cps: 60,
+    pause: 0,
+  },
+]
+
+/** A blinking typewriter caret: solid while typing, blinking once it rests. */
+function Caret({ typing }) {
+  return (
+    <motion.span
+      aria-hidden="true"
+      className="ml-[0.06em] inline-block h-[0.95em] w-[0.08em] min-w-[2px] translate-y-[0.12em] bg-fuchsia"
+      animate={typing ? { opacity: 1 } : { opacity: [1, 1, 0, 0] }}
+      transition={typing ? { duration: 0 } : { duration: 1.05, repeat: Infinity, times: [0, 0.5, 0.5, 1], ease: 'linear' }}
+    />
+  )
+}
+
+/**
+ * One line, typed. A Framer motion value counts the characters in; the typed
+ * part is shown, the rest is laid out but invisible — so the block never
+ * reflows as it types.
+ */
+function Typed({ as: Tag = 'p', text, cps, pause = 0, start, caret, onDone, className }) {
+  const reduce = useReducedMotion()
+  const count = useMotionValue(reduce ? text.length : 0)
+  const [n, setN] = useState(reduce ? text.length : 0)
+  useMotionValueEvent(count, 'change', (v) => setN(Math.round(v)))
+
+  useEffect(() => {
+    if (!start) return
+    if (reduce) {
+      onDone?.()
+      return
+    }
+    const controls = animate(count, text.length, {
+      duration: text.length / cps,
+      ease: 'linear',
+      onComplete: () => setTimeout(() => onDone?.(), pause * 1000),
+    })
+    return () => controls.stop()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [start])
+
+  return (
+    // The untyped rest is only invisible, not absent, so the element's text
+    // (for screen readers, and for anything reading the page) is whole and
+    // said once. The caret is decoration and hidden from them.
+    <Tag className={className}>
+      {text.slice(0, n)}
+      {caret && <Caret typing={n < text.length} />}
+      <span className="opacity-0">{text.slice(n)}</span>
+    </Tag>
+  )
+}
+
 export default function Hero({ onEnter }) {
-  const [feeling, setFeeling] = useState('')
+  // Which line is typing now; LINES.length once everything is on the page.
+  const [step, setStep] = useState(0)
+  const next = () => setStep((s) => s + 1)
+  const reduce = useReducedMotion()
+  const typed = (i, props) => (
+    <Typed
+      {...LINES[i]}
+      start={step >= i}
+      // the caret follows the typing, and comes to rest after the last line
+      caret={step === i || (i === LINES.length - 1 && step >= LINES.length)}
+      onDone={step === i ? next : undefined}
+      {...props}
+    />
+  )
+
   const videoRef = useRef(null)
   const rafRef = useRef(0)
   const fadingOutRef = useRef(false)
@@ -79,22 +156,38 @@ export default function Hero({ onEnter }) {
     }
   }, [])
 
-  const findPrompt = () => onEnter?.({ tab: 'spark' })
-  const useFeeling = () => feeling.trim() && onEnter?.({ feeling: feeling.trim() })
+  // Signed out, this lands on sign-in; signed in, the app sends her on to her books.
+  const getToWork = () => onEnter?.({ tab: 'account' })
 
   // A pointer-following light: overlay-blended white brightens the flower's dots
   // where you touch/hover and leaves the black untouched. Positioned via transform
   // (compositor-friendly) rather than repainting a full-screen gradient each move.
   const glowRef = useRef(null)
+
+  // The flowers lean toward the pointer: a soft spring, a few degrees of tilt
+  // and a little drift, so the clip feels held in space rather than pasted on.
+  const px = useMotionValue(0)
+  const py = useMotionValue(0)
+  const sx = useSpring(px, { stiffness: 60, damping: 18, mass: 0.8 })
+  const sy = useSpring(py, { stiffness: 60, damping: 18, mass: 0.8 })
+  const rotateY = useTransform(sx, [-0.5, 0.5], [-9, 9])
+  const rotateX = useTransform(sy, [-0.5, 0.5], [7, -7])
+  const driftX = useTransform(sx, [-0.5, 0.5], [-22, 22])
+  const driftY = useTransform(sy, [-0.5, 0.5], [-16, 16])
   const moveGlow = (e) => {
     const g = glowRef.current
     if (!g) return
     const r = e.currentTarget.getBoundingClientRect()
+    // -0.5 … 0.5 across the hero, for the flowers' parallax
+    px.set((e.clientX - r.left) / r.width - 0.5)
+    py.set((e.clientY - r.top) / r.height - 0.5)
     g.style.transform = `translate3d(${e.clientX - r.left}px, ${e.clientY - r.top}px, 0) translate(-50%, -50%)`
     g.style.opacity = '1'
   }
   const hideGlow = () => {
     if (glowRef.current) glowRef.current.style.opacity = '0'
+    px.set(0)
+    py.set(0)
   }
 
   return (
@@ -104,45 +197,15 @@ export default function Hero({ onEnter }) {
       onPointerLeave={hideGlow}
       onPointerCancel={hideGlow}
     >
-      {/* The clip's background isn't black — it sits at 16–20, a plateau across
-          some 87% of the frame — so the video's own rectangle reads as a panel
-          a shade lighter than the page, with a hard edge along the top where it
-          begins. Pull the black point down to meet the page: everything at or
-          below 20 goes to true black, white stays white, and the flower keeps
-          its dots. (255/(255-20) = 1.085 gain, less a 20/255 pedestal.) */}
-      <svg aria-hidden="true" width="0" height="0" className="absolute">
-        <filter id="hero-black-point" colorInterpolationFilters="sRGB">
-          <feComponentTransfer>
-            <feFuncR type="linear" slope="1.085" intercept="-0.0784" />
-            <feFuncG type="linear" slope="1.085" intercept="-0.0784" />
-            <feFuncB type="linear" slope="1.085" intercept="-0.0784" />
-          </feComponentTransfer>
-        </filter>
-      </svg>
-
-      <video
-        ref={videoRef}
-        src={BG_SRC}
-        muted
-        playsInline
-        autoPlay
-        loop={false}
-        preload="auto"
-        aria-hidden="true"
-        className="absolute inset-0 h-full w-full translate-y-[14%] scale-[1.5] object-contain [mix-blend-mode:screen] sm:translate-y-[32%] sm:scale-100 sm:object-cover sm:[mix-blend-mode:normal]"
-        style={{ opacity: 0, filter: 'url(#hero-black-point)' }}
-      />
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/60 via-black/35 to-black/70" />
-
-      {/* Pointer light — brightens the flower where you touch. z-[1] keeps it above
-          the video/gradient but below the z-10 content, so it never touches the text. */}
+      {/* Pointer light — overlay-blended, so it lifts the flowers' colour where
+          you hover and leaves the black untouched. Below the z-10 content. */}
       <div
         ref={glowRef}
         aria-hidden="true"
         className="pointer-events-none absolute left-0 top-0 z-[1] h-[42vmax] w-[42vmax] rounded-full opacity-0 transition-opacity duration-300 ease-out"
         style={{
           background:
-            'radial-gradient(circle, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.18) 32%, rgba(255,255,255,0) 62%)',
+            'radial-gradient(circle, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.15) 32%, rgba(255,255,255,0) 62%)',
           mixBlendMode: 'overlay',
           willChange: 'transform, opacity',
         }}
@@ -151,50 +214,63 @@ export default function Hero({ onEnter }) {
       <div className="relative z-10 flex min-h-screen flex-col">
         <TopNav
           tone="video"
+          wide
           active="home"
           onNavigate={(t) => t !== 'home' && onEnter?.({ tab: t })}
         />
 
-        {/* Hero content = the app's entry, filmed — compact, top-aligned */}
-        <main className="relative z-10 flex flex-1 flex-col items-center justify-start px-6 pb-12 pt-2 text-center">
-          {/* Fluid on phones so the one-line title fills the width without
-              overflowing, capped at 3rem (=text-5xl) so it joins the sm size
-              continuously. Fixed sizes from sm up.
-              The leading is set here because a bare `text-[…]` carries only a
-              size: without it the title inherits the body's, and a display line
-              sits in a box half again its own height, which reads as a hole
-              between the title and the field beneath it. From sm up the named
-              sizes bring their own leading, so hand it back to them. */}
-          <h1 className="whitespace-nowrap font-serif text-[min(11vw,3rem)] italic leading-[1.06] tracking-tight text-white sm:text-5xl sm:leading-none md:text-6xl lg:text-7xl">
-            Where poems begin
-          </h1>
+        {/* Words on one side, the flowers on the other. On phones they stack. */}
+        <main className="mx-auto grid w-full max-w-[88rem] flex-1 items-center gap-6 px-6 pb-10 md:grid-cols-[1fr_1fr] md:gap-8 lg:px-10">
+          <div className="order-2 text-center md:order-1 md:text-left">
+            {typed(0, {
+              as: 'h1',
+              className:
+                'font-serif text-[min(11vw,3rem)] italic leading-[1.05] tracking-tight text-white md:text-5xl lg:text-6xl',
+            })}
+            {typed(1, { className: 'mx-auto mt-5 max-w-md text-base leading-relaxed text-white/75 md:mx-0 md:text-lg' })}
+            {/* The button doesn't wait for all the prose: it rises in once the title is set. */}
+            <motion.button
+              onClick={getToWork}
+              initial={reduce ? false : { opacity: 0, y: 16, scale: 0.96 }}
+              animate={step >= 1 ? { opacity: 1, y: 0, scale: 1 } : undefined}
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.97 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+              className="mt-8 inline-flex items-center gap-2 rounded-full bg-fuchsia px-7 py-3 font-grotesk text-base font-bold text-white"
+            >
+              Get to work <ArrowRight size={18} />
+            </motion.button>
+          </div>
 
-          {/* the input + Use this on top; Find me a prompt + label on the row below */}
-          <div className="mt-9 flex w-full max-w-xl flex-col items-center gap-4">
-            <div className="flex w-full gap-2">
-              <input
-                value={feeling}
-                onChange={(e) => setFeeling(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && useFeeling()}
-                placeholder="the ache of a summer that's ending"
-                className="liquid-glass liquid-glass--fuchsia min-w-0 flex-1 rounded-full px-6 py-2.5 font-grotesk text-white placeholder:text-white/40 focus:outline-none"
-              />
-              <button
-                onClick={useFeeling}
-                className="liquid-glass shrink-0 rounded-full px-6 py-2.5 font-grotesk font-medium text-white transition-colors hover:bg-fuchsia/10"
+          <div className="order-1 flex justify-center [perspective:1200px] md:order-2">
+            {/* Blooms in, then floats; leans toward the pointer (see px/py above). */}
+            <motion.div
+              initial={reduce ? false : { opacity: 0, scale: 0.9, filter: 'blur(14px)' }}
+              animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+              transition={{ duration: 1.6, ease: [0.22, 1, 0.36, 1] }}
+              style={reduce ? undefined : { rotateX, rotateY, x: driftX, y: driftY }}
+            >
+              <motion.div
+                animate={reduce ? undefined : { y: [0, -14, 0], rotate: [0, 0.8, 0] }}
+                transition={{ duration: 9, repeat: Infinity, ease: 'easeInOut' }}
+                className="relative aspect-[740/920] h-[48vh] max-h-[48vh] md:h-[88vh] md:max-h-[88vh]"
               >
-                Use this
-              </button>
-            </div>
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              <button
-                onClick={findPrompt}
-                className="shrink-0 rounded-full bg-fuchsia px-7 py-3 font-grotesk font-bold text-white transition-transform hover:scale-[1.03]"
-              >
-                Find me a prompt
-              </button>
-              <span className="shrink-0 font-serif italic text-white/70">…or bring your own feeling</span>
-            </div>
+                <video
+                  ref={videoRef}
+                  src={BG_SRC}
+                  muted
+                  playsInline
+                  autoPlay
+                  loop={false}
+                  preload="auto"
+                  aria-hidden="true"
+                  className="absolute inset-0 h-full w-full object-cover"
+                  style={{ opacity: 0 }}
+                />
+                {/* soften the clip's edges into the page */}
+                <div className="pointer-events-none absolute inset-0 [background:radial-gradient(ellipse_at_center,transparent_55%,#000_100%)]" />
+              </motion.div>
+            </motion.div>
           </div>
         </main>
       </div>

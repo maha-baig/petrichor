@@ -3,7 +3,7 @@
 import 'dotenv/config'
 import app from './app.js'
 
-const PORT = process.env.PORT || 8787
+const PORT = process.env.PORT || 8788
 
 app.listen(PORT, () => {
   console.log(`\u25D7 Petrichor engines listening on http://localhost:${PORT}`)

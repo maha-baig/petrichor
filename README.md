@@ -65,11 +65,12 @@ feeling / prompt
 ```
 
 **The LLM is pluggable.** One env var picks the provider, and every tool works the same across all
-three:
+four:
 
 | `MUSE_PROVIDER` | What it uses | Cost |
 | --- | --- | --- |
-| `ollama` | Local Llama 3.1 8B, plus LLaVA for vision | Free, offline, private |
+| `groq` (default) | GPT-OSS 120B, open-weight, hosted on Groq | Free tier |
+| `ollama` | Local Qwen3 14B, plus LLaVA for vision · also the automatic fallback | Free, offline, private |
 | `gemini` | Gemini free tier | Free within limits |
 | `anthropic` | Claude | Paid |
 
@@ -90,10 +91,10 @@ cp .env.example .env      # add a key, or leave it and use local Ollama
 npm run dev
 ```
 
-Opens on `http://localhost:5173`, with the engine server on `8787`. Your API key stays
+Opens on `http://localhost:5174`, with the engine server on `8788`. Your API key stays
 server-side — it is never exposed to the browser.
 
-**For the free local setup:** install [Ollama](https://ollama.com), then `ollama pull llama3.1:8b`
+**For the free local setup:** install [Ollama](https://ollama.com), then `ollama pull qwen3:14b`
 (text) and `ollama pull llava:7b` (mood-board vision). Image generation additionally needs
 [ComfyUI](https://github.com/comfyanonymous/ComfyUI) running on `127.0.0.1:8188`. Every tool
 degrades gracefully with a clear message if a service is down.

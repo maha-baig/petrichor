@@ -11,7 +11,7 @@ import {
 } from './prompts.js'
 import { searchImages, availableSources, verify as verifyImageUrl } from './imageSearch.js'
 
-const PORT = process.env.PORT || 8787
+const PORT = process.env.PORT || 8788
 
 // Provider: 'groq' (free tier, hosted, default) · 'ollama' (free, local) ·
 // 'gemini' (free tier) · 'anthropic' (paid).
@@ -19,10 +19,10 @@ const PROVIDER = process.env.MUSE_PROVIDER || 'groq'
 // Fallback: if the primary provider fails, silently retry here. '' or 'none' disables.
 const FALLBACK = (process.env.MUSE_FALLBACK ?? 'ollama').toLowerCase()
 
-const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'
+const GROQ_MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-120b'
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash'
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434'
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.1:8b'
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen3:14b'
 const ANTHROPIC_MODEL = process.env.MUSE_MODEL || 'claude-sonnet-5'
 
 // Vision (mood-board reading) + image generation (ComfyUI) — both local & free.
@@ -124,6 +124,9 @@ async function callOllama({ system, user }, temperature) {
         model: OLLAMA_MODEL,
         stream: false,
         format: 'json', // ask Ollama to constrain output to valid JSON
+        // Reasoning models (qwen3, gpt-oss, deepseek-r1) think aloud before
+        // answering; that preamble isn't JSON. Ask for the answer alone.
+        ...(/^(qwen3|gpt-oss|deepseek-r1)/.test(OLLAMA_MODEL) ? { think: false } : {}),
         options: { temperature },
         messages: [
           { role: 'system', content: system },

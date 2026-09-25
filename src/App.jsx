@@ -1,17 +1,20 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { MotionConfig, motion } from 'framer-motion'
 import Spark from './components/Spark.jsx'
 import Workspace from './components/Workspace.jsx'
 import Workspaces from './components/Workspaces.jsx'
+import Books from './components/Books.jsx'
+import Book from './components/Book.jsx'
+import ChapterEditor from './components/ChapterEditor.jsx'
 import WordMap from './components/WordMap.jsx'
 import Reviewer from './components/Reviewer.jsx'
 import PoemOverlay from './components/PoemOverlay.jsx'
 import Hero from './components/Hero.jsx'
 import TopNav from './components/TopNav.jsx'
-import FeedbackMarkup from './components/FeedbackMarkup.jsx'
 import MorphTransition from './components/MorphTransition.jsx'
 import { blankWorkspace, saveWorkspace, getWorkspace, pruneEmpty } from './store.js'
-import { linkError } from './auth.jsx'
+import SignIn, { linkError, usePasswordRecovery, useSession } from './auth.jsx'
+import { isSupabaseConfigured } from './lib/supabase.js'
 
 function ThemeToggle() {
   function toggle() {
@@ -33,13 +36,36 @@ function ThemeToggle() {
 }
 
 export default function App() {
-  // A sign-in link that failed comes back to whatever page she left from —
-  // usually the hero, which has nothing to say about it. Open the workspaces
-  // view instead, where the sign-in form can explain what went wrong.
-  const [entered, setEntered] = useState(Boolean(linkError))
-  const [tab, setTab] = useState(linkError ? 'work' : 'spark')
+  const session = useSession()
+  const [recovering, doneRecovering] = usePasswordRecovery()
+  // An email link (a password reset, or one that failed) lands on whatever
+  // page she left from — usually the hero. Open the sign-in page instead,
+  // where it can be finished or explained.
+  const [entered, setEntered] = useState(Boolean(linkError || recovering))
+  const [tab, setTab] = useState(linkError || recovering ? 'account' : 'spark')
   const [mood, setMood] = useState('melancholy')
   const [workspace, setWorkspace] = useState(null) // the one currently open
+  const [workId, setWorkId] = useState(null) // the book open on the Books tab
+  const [pieceId, setPieceId] = useState(null) // the chapter open in the editor
+
+  useEffect(() => {
+    if (!recovering) return
+    setEntered(true)
+    setTab('account')
+  }, [recovering])
+
+  // Signed in from the sign-in page: straight to her books.
+  useEffect(() => {
+    if (session && tab === 'account' && !recovering) setTab('library')
+    if (session === null) {
+      setWorkId(null)
+      setPieceId(null)
+    }
+  }, [session, tab, recovering])
+
+  // One sign-in for everything that's hers: Books, and the Workspaces list.
+  const needsAccount = (t) =>
+    isSupabaseConfigured && session === null && (t === 'library' || (t === 'work' && !workspace))
 
   // Choosing a prompt gives it a room of its own, and sweeps away any empty
   // rooms left behind by browsing.
@@ -84,11 +110,22 @@ export default function App() {
                 }
                 // the Workspaces tab always opens on the list, never the last room
                 if (t === 'work') setWorkspace(null)
+                if (t === 'library') {
+                  setWorkId(null)
+                  setPieceId(null)
+                }
                 setTab(t)
               }}
             />
 
-            <div className="mx-auto max-w-4xl px-6 pb-16 pt-4">
+            {/* A book page wants more room than a tool; the editor takes the full width. */}
+            <div
+              className={
+                tab === 'library' && pieceId
+                  ? 'px-6 pt-4'
+                  : 'mx-auto px-6 pb-16 pt-4 ' + (tab === 'library' && workId ? 'max-w-5xl' : 'max-w-4xl')
+              }
+            >
               <MorphTransition
                 activeKey={tab}
                 transition="melt"
@@ -103,6 +140,12 @@ export default function App() {
                   // CSS-driven: a JS entrance here can stall while the page is
                   // hidden and strand the panel invisible.
                   <div key={t} className="tab-enter">
+                    {(t === 'account' || needsAccount(t)) && (
+                      <SignIn recovering={recovering} onRecovered={() => {
+                        doneRecovering()
+                        setTab('library')
+                      }} />
+                    )}
                     {t === 'spark' && (
                       <Spark
                         mood={mood}
@@ -111,7 +154,7 @@ export default function App() {
                       />
                     )}
 
-                    {t === 'work' &&
+                    {t === 'work' && !needsAccount(t) &&
                       (workspace ? (
                         <Workspace
                           workspace={workspace}
@@ -128,6 +171,21 @@ export default function App() {
                         />
                       ) : (
                         <Workspaces onOpen={openWorkspace} onNew={() => setTab('spark')} />
+                      ))}
+
+                    {t === 'library' && !needsAccount(t) &&
+                      (workId && pieceId ? (
+                        <ChapterEditor
+                          key={pieceId}
+                          workId={workId}
+                          pieceId={pieceId}
+                          onBack={() => setPieceId(null)}
+                          onOpen={(p) => setPieceId(p.id)}
+                        />
+                      ) : workId ? (
+                        <Book workId={workId} onBack={() => setWorkId(null)} onWrite={(p) => setPieceId(p.id)} />
+                      ) : (
+                        <Books onOpen={setWorkId} />
                       ))}
 
                     {t === 'map' && <WordMap mood={mood} setMood={setMood} />}
@@ -157,9 +215,6 @@ export default function App() {
         radius={0}
         render={(k) => (k === 'app' ? appView : homeView)}
       />
-
-      {/* Annotation tool for design review — dev only, never ships. */}
-      {import.meta.env.DEV && <FeedbackMarkup />}
     </MotionConfig>
   )
 }
