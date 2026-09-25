@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
+import { BubbleMenu } from '@tiptap/react/menus'
 import { Extension } from '@tiptap/react'
 import { StarterKit } from '@tiptap/starter-kit'
 import { TextAlign } from '@tiptap/extension-text-align'
@@ -17,7 +18,10 @@ import {
   Italic,
   List,
   ListOrdered,
+  Eye,
   Maximize2,
+  PenLine,
+  Sparkles,
   Minimize2,
   Minus,
   PanelLeft,
@@ -45,6 +49,7 @@ import {
   snapshot,
   updatePiece,
 } from '../library.js'
+import { assistText, suggestTitles } from '../assist.js'
 
 const SAVE_AFTER = 900 // ms of quiet before a save
 const SNAPSHOT_EVERY = 10 * 60 * 1000 // an automatic version at most every ten minutes
@@ -259,6 +264,100 @@ function HistoryPanel({ pieceId, onRestore, onClose }) {
   )
 }
 
+const ASSIST_LABEL = { fix: 'Fix typos', suggest: 'Suggest alternatives', tighten: 'Tighten', ask: 'Ask about this' }
+
+/**
+ * What the assistant made of a selected passage. Nothing touches the chapter
+ * until "Use this" is clicked, and the chapter is kept in History first.
+ */
+function AssistPanel({ assist, onAsk, onApply, onClose }) {
+  const [question, setQuestion] = useState('')
+  const { mode, text, status, result, error } = assist
+  const Use = ({ value }) => (
+    <button onClick={() => onApply(value)} className="mt-2 rounded-full bg-fuchsia px-3 py-1 font-grotesk text-xs font-bold text-white">
+      Use this
+    </button>
+  )
+  const Block = ({ children }) => (
+    <div className="whitespace-pre-wrap rounded-sm border border-line bg-card px-3 py-2 font-serif text-[0.95rem] leading-relaxed text-body">{children}</div>
+  )
+  return (
+    <aside className="fixed inset-y-0 right-0 z-[60] flex w-full max-w-md flex-col border-l border-line bg-paper shadow-2xl">
+      <div className="flex items-center justify-between border-b border-line px-5 py-4">
+        <h3 className="inline-flex items-center gap-2 font-serif text-2xl italic text-ink">
+          <Sparkles size={18} className="text-fuchsia" /> {ASSIST_LABEL[mode]}
+        </h3>
+        <button onClick={onClose} aria-label="Close" className="rounded-full p-1.5 text-muted hover:text-fuchsia">
+          <X size={18} />
+        </button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-auto px-5 py-4 text-sm">
+        <p className="font-grotesk text-[0.65rem] font-bold uppercase tracking-[0.2em] text-muted">Your passage</p>
+        <div className="mt-2 max-h-40 overflow-auto">
+          <Block>{text}</Block>
+        </div>
+
+        {status === 'asking' && (
+          <form
+            className="mt-5"
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (question.trim()) onAsk(question.trim())
+            }}
+          >
+            <input
+              autoFocus
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              placeholder="Does this line land? Is the tense consistent?"
+              className="w-full rounded-full border border-line bg-card px-4 py-2 text-body placeholder:text-muted/60 focus:border-fuchsia focus:outline-none"
+            />
+            <button type="submit" className="mt-2 rounded-full bg-fuchsia px-4 py-1.5 font-grotesk text-xs font-bold text-white">
+              Ask
+            </button>
+          </form>
+        )}
+
+        {status === 'loading' && <p className="mt-5 font-serif italic text-muted">Reading it…</p>}
+        {status === 'error' && <p className="mt-5 text-fuchsia">{error}</p>}
+
+        {status === 'done' && (
+          <div className="mt-5 flex flex-col gap-4">
+            {mode === 'fix' &&
+              (result.text === text ? (
+                <p className="font-serif italic text-muted">Nothing to fix.</p>
+              ) : (
+                <div>
+                  <Block>{result.text}</Block>
+                  {result.changes?.length > 0 && <p className="mt-2 text-xs text-muted">{result.changes.join(' · ')}</p>}
+                  <Use value={result.text} />
+                </div>
+              ))}
+            {mode === 'tighten' && (
+              <div>
+                <Block>{result.text}</Block>
+                {result.note && <p className="mt-2 text-xs text-muted">{result.note}</p>}
+                <Use value={result.text} />
+              </div>
+            )}
+            {mode === 'suggest' &&
+              (result.options || []).map((o, i) => (
+                <div key={i}>
+                  <Block>{o}</Block>
+                  <Use value={o} />
+                </div>
+              ))}
+            {mode === 'ask' && <p className="font-serif text-[0.95rem] leading-relaxed text-body">{result.answer}</p>}
+          </div>
+        )}
+      </div>
+      <p className="border-t border-line px-5 py-3 text-xs text-muted">
+        Suggestions only. Using one keeps the chapter as it was in History first, and ⌘Z undoes it.
+      </p>
+    </aside>
+  )
+}
+
 /** The book's contents, to jump between chapters without leaving the page. */
 function ContentsPanel({ work, contents, currentId, onOpen, onClose, onBack }) {
   return (
@@ -313,6 +412,9 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen }) {
   const [title, setTitle] = useState('')
   const [status, setStatus] = useState('saved')
   const [panel, setPanel] = useState(null) // 'history' | 'contents'
+  const [view, setView] = useState('write') // write | preview
+  const [assist, setAssist] = useState(null) // the selected-text assistant's request and answer
+  const [titleIdeas, setTitleIdeas] = useState(null) // null | 'loading' | string[] | { error }
   const [focus, setFocus] = useState(false)
   const [note, setNote] = useState(null)
   const [error, setError] = useState(null)
@@ -495,6 +597,68 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen }) {
     setNote('Restored. The version before it is in the history.')
   }
 
+  // ── the assistant, on a selected passage ──────────────────────────────────
+  const escText = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+  function startAssist(mode) {
+    if (!editor) return
+    const { from, to } = editor.state.selection
+    const text = editor.state.doc.textBetween(from, to, '\n\n', '\n')
+    if (!text.trim()) return
+    const base = { mode, text, range: { from, to } }
+    if (mode === 'ask') setAssist({ ...base, status: 'asking' })
+    else runAssist(base)
+  }
+
+  function runAssist(base, question = '') {
+    setAssist({ ...base, status: 'loading' })
+    assistText(base.mode, base.text, question)
+      .then((result) => setAssist((a) => (a && a.range === base.range ? { ...base, status: 'done', result } : a)))
+      .catch((e) => setAssist((a) => (a && a.range === base.range ? { ...base, status: 'error', error: e.message } : a)))
+  }
+
+  async function applyAssist(newText) {
+    const { range, text } = assist
+    const now = editor.state.doc.textBetween(range.from, Math.min(range.to, editor.state.doc.content.size), '\n\n', '\n')
+    if (now !== text) {
+      setAssist((a) => ({ ...a, status: 'error', error: 'That passage has changed since you asked. Select it again and ask once more.' }))
+      return
+    }
+    await snapshot({ id: pieceId, title: latest.current.title, body: latest.current.body }, 'kept').catch(() => {})
+    // A selection can start or end on a line break; keep exactly the original's
+    // edges and take only the middle from the suggestion, so no blank lines creep in.
+    const lead = text.match(/^\n*/)[0]
+    const trail = text.match(/\n*$/)[0]
+    newText = lead + String(newText).replace(/^\n+|\n+$/g, '') + trail
+    // Blank lines are paragraph (stanza) breaks; single newlines are line breaks.
+    const html = /\n\s*\n/.test(newText)
+      ? newText.split(/\n\s*\n/).map((p) => `<p>${p.split('\n').map(escText).join('<br>')}</p>`).join('')
+      : newText.split('\n').map(escText).join('<br>')
+    editor.chain().focus().insertContentAt(range, html, { parseOptions: { preserveWhitespace: 'full' } }).run()
+    setAssist(null)
+    setNote('Applied. The chapter before this change is in History.')
+    setTimeout(() => setNote(null), 3000)
+  }
+
+  function ideasForTitle() {
+    if (!editor) return
+    const text = editor.getText()
+    if (!text.trim()) {
+      setTitleIdeas({ error: 'Write a little of this chapter first.' })
+      return
+    }
+    setTitleIdeas('loading')
+    suggestTitles({
+      text,
+      current: title,
+      bookTitle: work?.title || '',
+      neighbours: numberContents(pieces).filter((p) => p.id !== pieceId).map(pieceLabel),
+      kind: current?.kind || 'chapter',
+    })
+      .then(setTitleIdeas)
+      .catch((e) => setTitleIdeas({ error: e.message }))
+  }
+
   if (error)
     return (
       <section>
@@ -545,6 +709,22 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen }) {
                 ))}
               </select>
             )}
+            <span className="flex items-center rounded-full border border-line p-0.5" role="group" aria-label="View">
+              <button
+                onClick={() => setView('write')}
+                aria-pressed={view === 'write'}
+                className={'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs transition-colors ' + (view === 'write' ? 'bg-fuchsia text-white' : 'text-muted hover:text-body')}
+              >
+                <PenLine size={13} /> Write
+              </button>
+              <button
+                onClick={() => setView('preview')}
+                aria-pressed={view === 'preview'}
+                className={'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs transition-colors ' + (view === 'preview' ? 'bg-fuchsia text-white' : 'text-muted hover:text-body')}
+              >
+                <Eye size={13} /> Preview
+              </button>
+            </span>
             <button onClick={keepVersion} className="hidden rounded-full border border-line px-3 py-1.5 text-xs text-muted transition-colors hover:border-fuchsia hover:text-fuchsia sm:inline">
               Keep this version
             </button>
@@ -561,7 +741,7 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen }) {
             </button>
           </span>
         </div>
-        {editor && (
+        {editor && view === 'write' && (
           <div className="mx-auto max-w-6xl border-t border-line/60 px-4 py-1.5">
             <Toolbar editor={editor} />
           </div>
@@ -587,11 +767,73 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen }) {
               }}
               placeholder={current?.kind === 'part' ? 'Name this part' : 'Untitled'}
               aria-label="Title"
+              readOnly={view === 'preview'}
               className="page-surface mt-3 w-full bg-transparent text-center font-serif text-3xl italic leading-tight text-ink placeholder:text-muted/40 focus:outline-none sm:text-4xl"
             />
+            {view === 'write' && (
+              <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
+                {Array.isArray(titleIdeas) ? (
+                  <>
+                    {titleIdeas.map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => {
+                          setTitle(t)
+                          schedule(t, latest.current.body)
+                          setTitleIdeas(null)
+                        }}
+                        className="rounded-full border border-line px-3 py-1 font-serif text-sm italic text-body transition-colors hover:border-fuchsia hover:text-fuchsia"
+                      >
+                        {t}
+                      </button>
+                    ))}
+                    <button onClick={() => setTitleIdeas(null)} className="px-2 text-xs text-muted hover:text-body">
+                      keep mine
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={ideasForTitle}
+                    disabled={titleIdeas === 'loading'}
+                    className="inline-flex items-center gap-1 text-xs text-muted transition-colors hover:text-fuchsia disabled:opacity-60"
+                  >
+                    <Sparkles size={12} /> {titleIdeas === 'loading' ? 'Thinking of titles…' : 'Suggest titles'}
+                  </button>
+                )}
+                {titleIdeas?.error && <span className="w-full text-xs text-fuchsia">{titleIdeas.error}</span>}
+              </div>
+            )}
             <div className="mx-auto mt-6 h-px w-12 bg-line" />
           </div>
-          <EditorContent editor={editor} />
+
+          {/* Preview: the chapter as it will read in the book. The editor stays
+              mounted underneath, so switching back loses nothing. */}
+          {view === 'preview' && (
+            <div
+              className={'book-preview ' + (/<br\s*\/?>/.test(latest.current.body || '') ? 'is-verse' : 'is-prose')}
+              dangerouslySetInnerHTML={{ __html: latest.current.body || '<p class="empty">Nothing written yet.</p>' }}
+            />
+          )}
+          <div className={view === 'preview' ? 'hidden' : ''}>
+            <EditorContent editor={editor} />
+          </div>
+          {editor && view === 'write' && (
+            <BubbleMenu editor={editor} shouldShow={({ state }) => !state.selection.empty && !assist}>
+              <div className="flex items-center gap-0.5 rounded-full border border-line bg-paper p-1 shadow-xl">
+                <Sparkles size={13} className="mx-1.5 text-fuchsia" aria-hidden />
+                {['fix', 'suggest', 'tighten', 'ask'].map((m) => (
+                  <button
+                    key={m}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => startAssist(m)}
+                    className="rounded-full px-2.5 py-1 font-grotesk text-xs text-body transition-colors hover:bg-fuchsia/10 hover:text-fuchsia"
+                  >
+                    {{ fix: 'Fix', suggest: 'Suggest', tighten: 'Tighten', ask: 'Ask' }[m]}
+                  </button>
+                ))}
+              </div>
+            </BubbleMenu>
+          )}
         </article>
 
         {/* ── Between chapters ──────────────────────────────────────────── */}
@@ -629,6 +871,14 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen }) {
         </div>
       </div>
 
+      {assist && (
+        <AssistPanel
+          assist={assist}
+          onAsk={(q) => runAssist(assist, q)}
+          onApply={applyAssist}
+          onClose={() => setAssist(null)}
+        />
+      )}
       {panel === 'history' && piece && <HistoryPanel pieceId={piece.id} onRestore={restore} onClose={() => setPanel(null)} />}
       {panel === 'contents' && work && (
         <ContentsPanel

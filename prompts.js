@@ -261,3 +261,111 @@ Return ONLY valid JSON: {"prompt": "…"}`
   const user = `Write the optimised image prompt.`
   return { system, user }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  BOOK ASSISTANTS
+//  Small, careful help inside a book. The rule from the reviewer holds: the
+//  author's words are theirs. These tidy, offer, and answer — every change is
+//  shown to the author first and only applied when they choose it.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const HANDS_OFF = `The author's voice is sacred. Unusual syntax, fragments, lowercase, missing
+punctuation, invented words and odd line breaks are usually deliberate, especially in poetry.
+Keep every line break exactly where it is.`
+
+/**
+ * CONTENTS ASSISTANT
+ * The author says what to do with the table of contents in plain words
+ * ("move chapter 5 after the prologue", "delete the duplicate chapter 1").
+ * contents: [{ id, kind, number, title, words, opening, dup }] in reading order.
+ * Returns { actions: [...], note }.
+ */
+export function buildContentsMessages({ instruction, contents }) {
+  const system = `You edit a book's table of contents on the author's instruction. You never see
+or change the text of any chapter; you only move, rename and delete entries.
+
+Reply with JSON only:
+{"actions":[ ... ], "note":"one or two plain sentences saying what you did, or asking what they meant"}
+
+Allowed actions (use only ids from the list):
+{"op":"move","id":"<id>","after":"<id of the entry it should follow, or null for the very start>"}
+{"op":"rename","id":"<id>","title":"<new title>"}
+{"op":"delete","id":"<id>"}
+
+Rules:
+- Do exactly what was asked, nothing more. Don't tidy, renumber or rename anything not mentioned.
+- Actions run in order, each on the result of the ones before.
+- "Chapter 5" means the entry numbered 5 (a chapter), or titled "Chapter 5" — prefer an exact title match.
+- Entries sharing a "dup" value have identical text. When asked to remove duplicates, keep the first of
+  each group and delete the rest. Entries with the same title but different text are NOT duplicates —
+  don't delete them; say so in the note.
+- If the instruction is unclear or refers to something that isn't there, return no actions and ask in the note.
+- In the note, name entries by their titles and numbers ("the second Chapter 1"), never by id.`
+
+  const user = `Instruction: ${instruction}
+
+Contents, in reading order:
+${contents
+  .map(
+    (c, i) =>
+      `${i + 1}. id=${c.id} | ${c.kind} ${c.number} | title: ${c.title || '(untitled)'} | ${c.words} words${
+        c.dup ? ` | dup=${c.dup}` : ''
+      } | opens: "${c.opening}"`,
+  )
+  .join('\n')}`
+  return { system, user }
+}
+
+/**
+ * TEXT ASSISTANT — for a passage the author has selected.
+ * mode: 'fix' | 'suggest' | 'tighten' | 'ask'
+ */
+export function buildTextAssistMessages({ mode, text, question = '', kind = 'prose' }) {
+  const form = kind === 'poetry' ? 'a poem' : 'a piece of writing'
+  const tasks = {
+    fix: `Correct only clear mistakes: spelling, doubled words, missing apostrophes, obvious typos,
+broken punctuation. Do NOT change word choice, rhythm, style, capitalisation that looks intentional,
+or line breaks. If nothing needs fixing, return the text unchanged.
+Reply: {"text":"<the corrected passage>","changes":["<each change, e.g. teh → the>"]}`,
+    suggest: `Offer three alternative wordings of this passage for the author to choose from. Keep
+their meaning, voice, register and line breaks; vary only the phrasing. Each should be about the same
+length as the original.
+Reply: {"options":["<option 1>","<option 2>","<option 3>"]}`,
+    tighten: `Offer one tighter version: remove redundancy and slack while keeping every image, the
+voice and the line breaks. Then say in one sentence what you cut.
+Reply: {"text":"<the tighter passage>","note":"<what changed>"}`,
+    ask: `Answer the author's question about this passage honestly and briefly (at most four
+sentences). Do not rewrite it; you may point at specific words.
+Reply: {"answer":"<your answer>"}`,
+  }
+  const system = `You are a careful editor helping the author of ${form}. ${HANDS_OFF}
+
+${tasks[mode]}`
+  const user = `${mode === 'ask' ? `Question: ${question}\n\n` : ''}Passage:
+"""
+${text}
+"""`
+  return { system, user }
+}
+
+/**
+ * CHAPTER TITLES — five titles to choose from, for one chapter.
+ * text: the chapter (trimmed by the caller); neighbours: nearby titles for tone.
+ */
+export function buildTitleMessages({ text, current = '', bookTitle = '', neighbours = [], kind = 'chapter' }) {
+  const system = `You suggest titles for one ${kind} of a book. ${HANDS_OFF}
+
+Offer five titles, short (one to five words), drawn from the ${kind}'s own images and words rather than
+summaries of its plot. Match the tone of the other titles if there are any. No numbering, no quotes, no
+"Chapter" prefix.
+Reply: {"titles":["...","...","...","...","..."]}`
+  const user = `Book: ${bookTitle || '(untitled)'}
+Current title: ${current || '(none)'}
+Other titles in the book: ${neighbours.filter(Boolean).join(' · ') || '(none yet)'}
+
+The ${kind}:
+"""
+${text}
+"""`
+  return { system, user }
+}

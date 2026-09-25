@@ -8,6 +8,9 @@ import {
   buildReviewMessages,
   buildMoodboardInstruction,
   buildPromptOptimizerMessages,
+  buildContentsMessages,
+  buildTextAssistMessages,
+  buildTitleMessages,
 } from './prompts.js'
 import { searchImages, availableSources, verify as verifyImageUrl } from './imageSearch.js'
 import { notionRoutes } from './notion.js'
@@ -75,7 +78,11 @@ async function callGroq({ system, user }, temperature) {
     const body = await res.text().catch(() => '')
     if (res.status === 401) throw new Error('Groq rejected the key. Check GROQ_API_KEY.')
     if (res.status === 429)
-      throw new Error('Groq rate limit reached. Wait a moment and try again.')
+      throw new Error(
+        /per day|TPD|RPD/i.test(body)
+          ? 'Daily AI limit reached. It resets tomorrow; your writing is unaffected.'
+          : 'Groq rate limit reached. Wait a moment and try again.',
+      )
     throw new Error(`Groq error ${res.status}: ${body.slice(0, 200)}`)
   }
   const data = await res.json()
@@ -495,6 +502,55 @@ app.get('/api/images/proxy', async (req, res) => {
 // Local-only services (Ollama vision, ComfyUI) don't exist on a serverless
 // host. The client reads this to hide what can't work here.
 const LOCAL_SERVICES = process.env.PETRICHOR_LOCAL_SERVICES !== 'false'
+
+// ── Book assistants: contents, selected text, chapter titles ─────────
+// Inputs are trimmed so a request stays inside the free tier's
+// tokens-per-minute budget; the model only ever proposes, the author applies.
+const clip = (s, n) => String(s || '').slice(0, n)
+
+app.post('/api/assist/contents', (req, res) => {
+  const { instruction, contents } = req.body || {}
+  if (!String(instruction || '').trim()) return res.status(400).json({ error: 'Say what you’d like changed.' })
+  if (!Array.isArray(contents) || !contents.length) return res.status(400).json({ error: 'This book has no contents yet.' })
+  const list = contents.slice(0, 300).map((c) => ({
+    id: clip(c.id, 64),
+    kind: clip(c.kind, 12),
+    number: clip(c.number, 12),
+    title: clip(c.title, 120),
+    words: Number(c.words) || 0,
+    opening: clip(c.opening, 90),
+    dup: clip(c.dup, 12),
+  }))
+  runEngine(res, buildContentsMessages({ instruction: clip(instruction, 600), contents: list }), 0.1)
+})
+
+app.post('/api/assist/text', (req, res) => {
+  const { mode, text, question, kind } = req.body || {}
+  if (!['fix', 'suggest', 'tighten', 'ask'].includes(mode)) return res.status(400).json({ error: 'Unknown request.' })
+  if (!String(text || '').trim()) return res.status(400).json({ error: 'Select some text first.' })
+  if (mode === 'ask' && !String(question || '').trim()) return res.status(400).json({ error: 'Ask a question first.' })
+  const temperature = mode === 'fix' ? 0.1 : mode === 'ask' ? 0.4 : 0.8
+  runEngine(res, buildTextAssistMessages({ mode, text: clip(text, 6000), question: clip(question, 400), kind }), temperature)
+})
+
+app.post('/api/assist/titles', (req, res) => {
+  const { text, current, bookTitle, neighbours, kind } = req.body || {}
+  if (!String(text || '').trim()) return res.status(400).json({ error: 'Write a little of this chapter first.' })
+  // The opening and the close carry a chapter's character; the middle can wait.
+  const t = String(text)
+  const trimmed = t.length > 9000 ? `${t.slice(0, 7000)}\n[…]\n${t.slice(-2000)}` : t
+  runEngine(
+    res,
+    buildTitleMessages({
+      text: trimmed,
+      current: clip(current, 120),
+      bookTitle: clip(bookTitle, 120),
+      neighbours: (Array.isArray(neighbours) ? neighbours : []).slice(0, 12).map((n) => clip(n, 80)),
+      kind: clip(kind, 12) || 'chapter',
+    }),
+    0.9,
+  )
+})
 
 // Notion import (owner-only; see notion.js)
 notionRoutes(app)

@@ -19,6 +19,7 @@ import { TRIMS, downloadEpub, downloadText, printManuscript } from '../manuscrip
 import { ACCEPT, importIntoBook } from '../importDoc.js'
 import { importNotionIntoBook } from '../notionImport.js'
 import NotionPicker from './NotionPicker.jsx'
+import ContentsAssistant from './ContentsAssistant.jsx'
 
 const STATUS_DOT = { draft: 'bg-line', revising: 'bg-amber', final: 'bg-fuchsia' }
 const COVER_COLORS = ['#2a1f2d', '#1f2a2a', '#3a2418', '#1d2438', '#33202a', '#23301f', '#6b1d3a', '#c9bfae']
@@ -412,6 +413,13 @@ export default function Book({ workId, onBack, onWrite }) {
             ))}
           </div>
         </div>
+
+        {contents.length > 1 && (
+          <ContentsAssistant
+            workId={work.id}
+            onChanged={() => getWork(work.id).then((found) => found && setPieces(found.pieces))}
+          />
+        )}
 
         {importing && <p className="mt-4 font-serif italic text-muted" role="status">{importing}</p>}
 
