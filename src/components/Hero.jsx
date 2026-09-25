@@ -73,7 +73,7 @@ function Typed({ as: Tag = 'p', text, cps, pause = 0, start, caret, onDone, clas
   )
 }
 
-export default function Hero({ onEnter }) {
+export default function Hero({ onEnter, role }) {
   // Which line is typing now; LINES.length once everything is on the page.
   const [step, setStep] = useState(0)
   const next = () => setStep((s) => s + 1)
@@ -156,8 +156,10 @@ export default function Hero({ onEnter }) {
     }
   }, [])
 
-  // Signed out, this lands on sign-in; signed in, the app sends her on to her books.
-  const getToWork = () => onEnter?.({ tab: 'account' })
+  // The owner goes to the books; everyone else to the reading room, which
+  // takes care of signing in and asking to read.
+  const owner = role === 'owner'
+  const getToWork = () => onEnter?.({ tab: owner ? 'library' : 'read' })
 
   // A pointer-following light: overlay-blended white brightens the flower's dots
   // where you touch/hover and leaves the black untouched. Positioned via transform
@@ -216,6 +218,7 @@ export default function Hero({ onEnter }) {
           tone="video"
           wide
           active="home"
+          role={role}
           onNavigate={(t) => t !== 'home' && onEnter?.({ tab: t })}
         />
 
@@ -238,7 +241,7 @@ export default function Hero({ onEnter }) {
               transition={{ type: 'spring', stiffness: 260, damping: 22 }}
               className="mt-8 inline-flex items-center gap-2 rounded-full bg-fuchsia px-7 py-3 font-grotesk text-base font-bold text-white"
             >
-              Get to work <ArrowRight size={18} />
+              {owner ? 'Get to work' : 'Start reading'} <ArrowRight size={18} />
             </motion.button>
           </div>
 

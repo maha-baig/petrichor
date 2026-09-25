@@ -14,6 +14,7 @@ import {
 } from './prompts.js'
 import { searchImages, availableSources, verify as verifyImageUrl } from './imageSearch.js'
 import { notionRoutes } from './notion.js'
+import { ownerOnly } from './owner.js'
 
 const PORT = process.env.PORT || 8788
 
@@ -38,6 +39,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 const app = express()
 app.use(express.json({ limit: '30mb' })) // pasted mood-board images travel as base64
+
+// Every engine that spends the AI allowance (or reads her Notion) answers the
+// owner only. GETs — the health check and the signed image proxy — stay open.
+app.use('/api', (req, res, next) => (req.method === 'POST' ? ownerOnly(req, res, next) : next()))
 
 // Pull the first JSON object out of a reply, tolerating stray prose or code fences.
 function extractJSON(text) {

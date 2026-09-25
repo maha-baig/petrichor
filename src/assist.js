@@ -4,11 +4,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { getManuscript, htmlToText, numberContents, pieceLabel } from './library.js'
+import { authHeaders } from './lib/supabase.js'
 
 async function post(path, body) {
   const res = await fetch(`/api/assist/${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
     body: JSON.stringify(body),
   })
   const json = await res.json().catch(() => ({}))

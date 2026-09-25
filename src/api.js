@@ -1,7 +1,10 @@
+import { authHeaders } from './lib/supabase.js'
+
+// Every engine answers the owner only; her session goes with each request.
 async function post(path, body) {
   const res = await fetch(path, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
     body: JSON.stringify(body),
   })
   const data = await res.json().catch(() => ({}))

@@ -473,6 +473,7 @@ export default function Book({ workId, onBack, onWrite }) {
 
                 {!isPart && (
                   <span className="hidden shrink-0 items-center gap-2 text-xs text-muted sm:flex">
+                    {p.published_at && <span className="rounded-full bg-fuchsia/10 px-2 py-0.5 text-fuchsia">Published</span>}
                     <span className={'h-1.5 w-1.5 rounded-full ' + STATUS_DOT[p.status]} title={p.status} />
                     {fmt(p.words)} words
                   </span>

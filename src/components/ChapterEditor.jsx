@@ -19,6 +19,8 @@ import {
   List,
   ListOrdered,
   Eye,
+  Globe,
+  BookOpenCheck,
   Maximize2,
   PenLine,
   Sparkles,
@@ -48,8 +50,10 @@ import {
   readDraft,
   snapshot,
   updatePiece,
+  setPublished,
 } from '../library.js'
 import { assistText, suggestTitles } from '../assist.js'
+import { getReview } from '../api.js'
 
 const SAVE_AFTER = 900 // ms of quiet before a save
 const SNAPSHOT_EVERY = 10 * 60 * 1000 // an automatic version at most every ten minutes
@@ -358,8 +362,63 @@ function AssistPanel({ assist, onAsk, onApply, onClose }) {
   )
 }
 
+/** "Get a reading": the Reviewer's response to this poem, beside it. */
+function ReadingPanel({ text, onClose }) {
+  const [review, setReview] = useState(null)
+  const [error, setError] = useState(null)
+  useEffect(() => {
+    getReview({ poem: text }).then(setReview, (e) => setError(e.message))
+  }, [text])
+  return (
+    <aside className="fixed inset-y-0 right-0 z-[60] flex w-full max-w-md flex-col border-l border-line bg-paper shadow-2xl">
+      <div className="flex items-center justify-between border-b border-line px-5 py-4">
+        <h3 className="font-serif text-2xl italic text-ink">A reading</h3>
+        <button onClick={onClose} aria-label="Close" className="rounded-full p-1.5 text-muted hover:text-fuchsia">
+          <X size={18} />
+        </button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-auto px-5 py-4 text-sm">
+        {!review && !error && <p className="font-serif italic text-muted">Sitting with your poem…</p>}
+        {error && <p className="text-fuchsia">{error}</p>}
+        {review && (
+          <div className="space-y-6">
+            <div>
+              <p className="font-grotesk text-[0.65rem] font-bold uppercase tracking-[0.2em] text-muted">What I understand</p>
+              <p className="mt-2 border-l-2 border-fuchsia pl-3 font-serif text-base leading-relaxed text-body">{review.reading}</p>
+            </div>
+            {review.strengths?.length > 0 && (
+              <div>
+                <p className="font-grotesk text-[0.65rem] font-bold uppercase tracking-[0.2em] text-muted">What’s working</p>
+                <ul className="mt-2 space-y-1.5 text-body">
+                  {review.strengths.map((x, i) => (
+                    <li key={i}>· {x}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {review.suggestions?.length > 0 && (
+              <div>
+                <p className="font-grotesk text-[0.65rem] font-bold uppercase tracking-[0.2em] text-muted">Where you might push it</p>
+                <ul className="mt-2 space-y-3">
+                  {review.suggestions.map((x, i) => (
+                    <li key={i} className="rounded-sm border border-line bg-card p-3">
+                      <p className="font-grotesk text-xs font-bold uppercase tracking-[0.08em] text-amber">{x.point}</p>
+                      <p className="mt-1 text-body">{x.try}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      <p className="border-t border-line px-5 py-3 text-xs text-muted">A reading, not a rewrite. The words stay yours.</p>
+    </aside>
+  )
+}
+
 /** The book's contents, to jump between chapters without leaving the page. */
-function ContentsPanel({ work, contents, currentId, onOpen, onClose, onBack }) {
+function ContentsPanel({ work, contents, currentId, onOpen, onClose, onBack, mode = 'book' }) {
   return (
     <aside className="fixed inset-y-0 left-0 z-[60] flex w-full max-w-xs flex-col border-r border-line bg-paper shadow-2xl">
       <div className="flex items-center justify-between border-b border-line px-5 py-4">
@@ -388,8 +447,8 @@ function ContentsPanel({ work, contents, currentId, onOpen, onClose, onBack }) {
                 </span>
               ) : (
                 <>
-                  <span className="w-8 shrink-0 text-xs tabular-nums text-muted">{p.number}</span>
-                  <span className="truncate font-serif italic">{pieceLabel(p)}</span>
+                  {mode !== 'poem' && <span className="w-8 shrink-0 text-xs tabular-nums text-muted">{p.number}</span>}
+                  <span className="truncate font-serif italic">{mode === 'poem' ? p.title?.trim() || 'Untitled poem' : pieceLabel(p)}</span>
                 </>
               )}
             </button>
@@ -405,7 +464,8 @@ function ContentsPanel({ work, contents, currentId, onOpen, onClose, onBack }) {
  * page, with a word-processor toolbar. Saved a moment after she stops typing,
  * with a copy held in this browser until the database has it.
  */
-export default function ChapterEditor({ workId, pieceId, onBack, onOpen }) {
+export default function ChapterEditor({ workId, pieceId, onBack, onOpen, mode = 'book' }) {
+  const poem = mode === 'poem'
   const [work, setWork] = useState(null)
   const [pieces, setPieces] = useState([])
   const [piece, setPiece] = useState(null)
@@ -415,6 +475,8 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen }) {
   const [view, setView] = useState('write') // write | preview
   const [assist, setAssist] = useState(null) // the selected-text assistant's request and answer
   const [titleIdeas, setTitleIdeas] = useState(null) // null | 'loading' | string[] | { error }
+  const [reading, setReading] = useState(null) // the poem's text, while a reading is open
+  const [publishing, setPublishing] = useState(false)
   const [focus, setFocus] = useState(false)
   const [note, setNote] = useState(null)
   const [error, setError] = useState(null)
@@ -640,6 +702,23 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen }) {
     setTimeout(() => setNote(null), 3000)
   }
 
+  // Publishing shows this piece to approved readers; unpublishing takes it back.
+  async function togglePublished() {
+    if (!piece) return
+    setPublishing(true)
+    try {
+      await save()
+      const row = await setPublished(piece.id, !piece.published_at)
+      setPiece((p) => ({ ...p, published_at: row.published_at }))
+      setNote(row.published_at ? 'Published. Approved readers can see it now.' : 'Back to draft. Readers can no longer see it.')
+      setTimeout(() => setNote(null), 3500)
+    } catch (e) {
+      setNote(e.message)
+    } finally {
+      setPublishing(false)
+    }
+  }
+
   function ideasForTitle() {
     if (!editor) return
     const text = editor.getText()
@@ -653,7 +732,7 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen }) {
       current: title,
       bookTitle: work?.title || '',
       neighbours: numberContents(pieces).filter((p) => p.id !== pieceId).map(pieceLabel),
-      kind: current?.kind || 'chapter',
+      kind: poem ? 'poem' : current?.kind || 'chapter',
     })
       .then(setTitleIdeas)
       .catch((e) => setTitleIdeas({ error: e.message }))
@@ -674,14 +753,14 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen }) {
   const current = contents[here]
   const prev = contents[here - 1]
   const next = contents[here + 1]
-  const kindLabel = current ? (current.kind === 'part' ? `Part ${current.number}` : current.kind === 'chapter' ? `Chapter ${current.number}` : `Section ${current.number}`) : ''
+  const kindLabel = poem ? 'Poem' : current ? (current.kind === 'part' ? `Part ${current.number}` : current.kind === 'chapter' ? `Chapter ${current.number}` : `Section ${current.number}`) : ''
 
   return (
     <div className={focus ? 'fixed inset-0 z-[50] overflow-auto bg-paper2' : '-mx-6 -mt-4 min-h-screen bg-paper2/60'}>
       {/* ── Top bar ───────────────────────────────────────────────────────── */}
       <div className={'sticky top-0 z-40 border-b border-line bg-paper/95 backdrop-blur transition-opacity ' + (focus ? 'opacity-0 hover:opacity-100 focus-within:opacity-100' : '')}>
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5">
-          <button onClick={onBack} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-fuchsia" title="Back to the book">
+          <button onClick={onBack} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-fuchsia" title={poem ? "Back to your poems" : "Back to the book"}>
             <ArrowLeft size={16} />
             <span className="max-w-[12rem] truncate font-serif italic">{work ? bookTitle(work) : '…'}</span>
           </button>
@@ -708,6 +787,28 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen }) {
                   </option>
                 ))}
               </select>
+            )}
+            {piece && (
+              <button
+                onClick={togglePublished}
+                disabled={publishing}
+                title={piece.published_at ? 'Published: approved readers can see this. Click to take it back to draft.' : 'Show this to your approved readers'}
+                className={
+                  'inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs transition-colors disabled:opacity-60 ' +
+                  (piece.published_at ? 'border-fuchsia bg-fuchsia/10 text-fuchsia' : 'border-line text-muted hover:border-fuchsia hover:text-fuchsia')
+                }
+              >
+                <Globe size={13} /> {publishing ? '…' : piece.published_at ? 'Published' : 'Publish'}
+              </button>
+            )}
+            {poem && (
+              <button
+                onClick={() => editor && setReading(editor.getText({ blockSeparator: '\n\n' }))}
+                className="hidden items-center gap-1 rounded-full border border-line px-3 py-1.5 text-xs text-muted transition-colors hover:border-fuchsia hover:text-fuchsia sm:inline-flex"
+                title="The Reviewer's reading of this poem"
+              >
+                <BookOpenCheck size={13} /> Get a reading
+              </button>
             )}
             <span className="flex items-center rounded-full border border-line p-0.5" role="group" aria-label="View">
               <button
@@ -765,7 +866,7 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen }) {
                   editor?.commands.focus('start')
                 }
               }}
-              placeholder={current?.kind === 'part' ? 'Name this part' : 'Untitled'}
+              placeholder={poem ? 'Untitled poem' : current?.kind === 'part' ? 'Name this part' : 'Untitled'}
               aria-label="Title"
               readOnly={view === 'preview'}
               className="page-surface mt-3 w-full bg-transparent text-center font-serif text-3xl italic leading-tight text-ink placeholder:text-muted/40 focus:outline-none sm:text-4xl"
@@ -854,7 +955,7 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen }) {
               </button>
             ) : (
               <button onClick={onBack} className="text-muted hover:text-fuchsia">
-                Back to contents
+                {poem ? 'Back to your poems' : 'Back to contents'}
               </button>
             )}
           </nav>
@@ -871,6 +972,7 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen }) {
         </div>
       </div>
 
+      {reading !== null && <ReadingPanel text={reading} onClose={() => setReading(null)} />}
       {assist && (
         <AssistPanel
           assist={assist}
@@ -891,6 +993,7 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen }) {
           }}
           onClose={() => setPanel(null)}
           onBack={onBack}
+          mode={mode}
         />
       )}
       {panel && <div className="fixed inset-0 z-[55] bg-black/30" onClick={() => setPanel(null)} aria-hidden />}

@@ -42,7 +42,7 @@ async function markdownToHtml(text) {
  * newline is a line break, and every space is kept. Lines like "Chapter 3" or
  * "CHAPTER THREE" on their own become chapter headings.
  */
-function textToHtml(text) {
+export function textToHtml(text) {
   const blocks = text.replace(/\r\n?/g, '\n').split(/\n\s*\n/)
   return blocks
     .map((b) => b.replace(/\s+$/, ''))

@@ -135,10 +135,10 @@ export async function removeCover(workId, path) {
 // ── books ────────────────────────────────────────────────────────────────────
 
 /** Every book, most recently touched first, with its chapter count and words. */
-export async function listWorks() {
+export async function listWorks({ kind = 'book' } = {}) {
   const uid = await userId()
   const works = check(
-    await supabase.from('works').select('*').eq('user_id', uid).order('updated_at', { ascending: false }),
+    await supabase.from('works').select('*').eq('user_id', uid).eq('kind', kind).order('updated_at', { ascending: false }),
   )
   if (!works.length) return []
   const pieces = check(
@@ -167,10 +167,10 @@ export async function listWorks() {
 const COVER_COLORS = ['#2a1f2d', '#1f2a2a', '#3a2418', '#1d2438', '#33202a', '#23301f']
 
 /** A new book. `blank: false` skips the empty first chapter (an import brings its own). */
-export async function createWork({ title = '', blank = true } = {}) {
+export async function createWork({ title = '', blank = true, kind = 'book' } = {}) {
   const uid = await userId()
   const cover_color = COVER_COLORS[Math.floor(Math.random() * COVER_COLORS.length)]
-  const work = check(await supabase.from('works').insert({ user_id: uid, cover_color, title }).select().single())
+  const work = check(await supabase.from('works').insert({ user_id: uid, cover_color, title, kind }).select().single())
   if (blank) await createPiece(work.id, { kind: 'chapter', position: 0 })
   return work
 }
@@ -181,7 +181,7 @@ export async function getWork(id) {
   const pieces = check(
     await supabase
       .from('pieces')
-      .select('id, work_id, kind, title, words, status, position, updated_at')
+      .select('id, work_id, kind, title, words, status, position, updated_at, published_at')
       .eq('work_id', id)
       .order('position', { ascending: true }),
   )
@@ -215,7 +215,7 @@ export async function createPiece(workId, { kind = 'chapter', position = 0, titl
     await supabase
       .from('pieces')
       .insert({ work_id: workId, user_id: uid, kind, position, title, body, words })
-      .select('id, work_id, kind, title, words, status, position, updated_at')
+      .select('id, work_id, kind, title, words, status, position, updated_at, published_at')
       .single(),
   )
 }
@@ -378,4 +378,62 @@ export function dropDraft(id) {
   } catch {
     /* nothing to drop */
   }
+}
+
+// ── publishing ───────────────────────────────────────────────────────────────
+
+/** Show a chapter or poem to approved readers, or take it back to drafts. */
+export async function setPublished(id, on) {
+  return updatePiece(id, { published_at: on ? new Date().toISOString() : null })
+}
+
+// ── poems ────────────────────────────────────────────────────────────────────
+// A poem is a piece in a 'poems' work (a collection). Every poet gets one
+// collection called "Poems" to begin with; more can be made.
+
+export async function poemCollections() {
+  const uid = await userId()
+  return check(
+    await supabase.from('works').select('*').eq('user_id', uid).eq('kind', 'poems').order('created_at', { ascending: true }),
+  )
+}
+
+export async function ensurePoemCollection() {
+  const existing = await poemCollections()
+  if (existing.length) return existing[0]
+  return createWork({ title: 'Poems', blank: false, kind: 'poems' })
+}
+
+export async function createPoemCollection(title) {
+  return createWork({ title: String(title || '').trim() || 'Untitled collection', blank: false, kind: 'poems' })
+}
+
+/** Every poem, newest touched first, with enough of its text to recognise it. */
+export async function listPoems() {
+  const collections = await poemCollections()
+  if (!collections.length) return { collections, poems: [] }
+  const poems = check(
+    await supabase
+      .from('pieces')
+      .select('id, work_id, title, body, words, status, position, updated_at, published_at')
+      .in(
+        'work_id',
+        collections.map((c) => c.id),
+      )
+      .order('updated_at', { ascending: false }),
+  )
+  return { collections, poems }
+}
+
+/** A new poem at the end of a collection (the first one, if none is named). */
+export async function createPoem({ workId, title = '', body = '' } = {}) {
+  const collection = workId ? { id: workId } : await ensurePoemCollection()
+  const last = check(
+    await supabase.from('pieces').select('position').eq('work_id', collection.id).order('position', { ascending: false }).limit(1),
+  )
+  return createPiece(collection.id, { kind: 'chapter', position: (last[0]?.position ?? -1) + 1, title, body })
+}
+
+export async function movePoem(id, workId) {
+  return updatePiece(id, { work_id: workId })
 }

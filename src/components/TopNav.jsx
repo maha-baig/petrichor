@@ -3,18 +3,23 @@ import { Feather, Menu, X } from 'lucide-react'
 import { isSupabaseConfigured } from '../lib/supabase.js'
 import { signOut, useSession } from '../auth.jsx'
 
-// Books first: it's where her own work lives. The tools follow.
-const LINKS = [
+// Her writing first, then the tools, then what friends see. Anyone who isn't
+// the owner only gets Home and Read.
+const OWNER_LINKS = [
   { l: 'Home', t: 'home' },
   { l: 'Books', t: 'library' },
-  { l: 'Workspaces', t: 'work' },
-  { l: 'Word map', t: 'map' },
-  { l: 'Reviewer', t: 'review' },
-  { l: 'Poem on image', t: 'overlay' },
+  { l: 'Poems', t: 'poems' },
+  { l: 'Inspiration', t: 'inspire' },
+  { l: 'Image', t: 'image' },
+  { l: 'Read', t: 'read' },
+]
+const READER_LINKS = [
+  { l: 'Home', t: 'home' },
+  { l: 'Read', t: 'read' },
 ]
 
 /** Signed out: a Sign in button. Signed in: her initial, opening a small menu. */
-function Account({ onVideo, active, onNavigate }) {
+function Account({ onVideo, active, onNavigate, role, unseen = 0 }) {
   const session = useSession()
   const [open, setOpen] = useState(false)
   const box = useRef(null)
@@ -52,22 +57,40 @@ function Account({ onVideo, active, onNavigate }) {
         onClick={() => setOpen((v) => !v)}
         aria-label={`Account: ${email}`}
         aria-expanded={open}
-        className="grid h-8 w-8 place-items-center rounded-full bg-fuchsia font-grotesk text-sm font-bold uppercase text-white"
+        className="relative grid h-8 w-8 place-items-center rounded-full bg-fuchsia font-grotesk text-sm font-bold uppercase text-white"
       >
         {email[0] || '·'}
+        {unseen > 0 && (
+          <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-ink px-1 text-[0.6rem] text-paper">
+            {unseen}
+          </span>
+        )}
       </button>
       {open && (
         <div className="absolute right-0 top-full z-50 mt-2 w-60 rounded-sm border border-line bg-paper p-1.5 shadow-xl">
           <p className="truncate px-3 py-2 text-xs text-muted">{email}</p>
-          <button
-            onClick={() => {
-              setOpen(false)
-              onNavigate('library')
-            }}
-            className="block w-full rounded-sm px-3 py-2 text-left text-sm text-body hover:bg-body/5 hover:text-fuchsia"
-          >
-            Your books
-          </button>
+          {role === 'owner' ? (
+            <button
+              onClick={() => {
+                setOpen(false)
+                onNavigate('people')
+              }}
+              className="flex w-full items-center justify-between rounded-sm px-3 py-2 text-left text-sm text-body hover:bg-body/5 hover:text-fuchsia"
+            >
+              Readers &amp; comments
+              {unseen > 0 && <span className="rounded-full bg-fuchsia/10 px-2 text-xs text-fuchsia">{unseen} new</span>}
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                setOpen(false)
+                onNavigate('read')
+              }}
+              className="block w-full rounded-sm px-3 py-2 text-left text-sm text-body hover:bg-body/5 hover:text-fuchsia"
+            >
+              Read
+            </button>
+          )}
           <button
             onClick={async () => {
               setOpen(false)
@@ -85,7 +108,8 @@ function Account({ onVideo, active, onNavigate }) {
 
 // One navbar for the whole site. tone="video" = white (over the hero video);
 // tone="app" = theme-aware (adapts to dark/light), fuchsia on the active page.
-export default function TopNav({ tone = 'app', active, onNavigate, wide = false }) {
+export default function TopNav({ tone = 'app', active, onNavigate, wide = false, role, unseen = 0 }) {
+  const LINKS = role === 'owner' ? OWNER_LINKS : READER_LINKS
   const [open, setOpen] = useState(false)
   const onVideo = tone === 'video'
   const brand = onVideo ? 'text-white' : 'text-body'
@@ -122,12 +146,12 @@ export default function TopNav({ tone = 'app', active, onNavigate, wide = false 
               {n.l}
             </button>
           ))}
-          <Account onVideo={onVideo} active={active} onNavigate={go} />
+          <Account onVideo={onVideo} active={active} onNavigate={go} role={role} unseen={unseen} />
         </div>
 
         {/* Phones: the account button, then a hamburger for the links. */}
         <div className="flex items-center gap-3 sm:hidden">
-          <Account onVideo={onVideo} active={active} onNavigate={go} />
+          <Account onVideo={onVideo} active={active} onNavigate={go} role={role} unseen={unseen} />
           <button
             onClick={() => setOpen((v) => !v)}
             aria-label={open ? 'Close menu' : 'Open menu'}

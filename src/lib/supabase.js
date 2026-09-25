@@ -18,3 +18,11 @@ export const supabase = isSupabaseConfigured
   : null
 
 export const BUCKET = 'moodboards'
+
+/** The signed-in session as a request header, for the owner-only engines. */
+export async function authHeaders() {
+  if (!supabase) return {}
+  const { data } = await supabase.auth.getSession()
+  const jwt = data?.session?.access_token
+  return jwt ? { Authorization: `Bearer ${jwt}` } : {}
+}

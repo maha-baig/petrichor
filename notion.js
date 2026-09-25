@@ -3,46 +3,28 @@
 //
 //  A private Notion integration (NOTION_TOKEN) reads the pages she has shared
 //  with it. Notion's API can't be called from a browser, so the app asks these
-//  routes, and they only answer the account named in NOTION_OWNER_EMAIL:
-//  every request carries her Supabase session, which is checked with Supabase
-//  before Notion is touched. Anyone else who signs in gets a polite no.
+//  routes, and they only answer the owner: every request carries her Supabase
+//  session, and the database confirms it's hers (owner.js) before Notion is
+//  touched. Anyone else who signs in gets a polite no.
 //
 //  Pages come back as HTML in the same small vocabulary the chapter editor
 //  speaks, with every line break kept — Notion poems stay poems.
 // ─────────────────────────────────────────────────────────────────────────────
+
+import { HttpError, requireOwner as requireAppOwner } from './owner.js'
 
 const NOTION = 'https://api.notion.com/v1'
 const NOTION_VERSION = '2022-06-28'
 const MAX_DEPTH = 3 // nested blocks (toggles, list items) followed this deep
 const MAX_BLOCKS = 5000 // one page; a safety net against runaway fetching
 
+
 const token = () => process.env.NOTION_TOKEN
-const owner = () => (process.env.NOTION_OWNER_EMAIL || '').trim().toLowerCase()
-const supabaseUrl = () => process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
-const supabaseAnon = () => process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
 
-class HttpError extends Error {
-  constructor(status, message) {
-    super(message)
-    this.status = status
-  }
-}
-
-// ── who's asking ─────────────────────────────────────────────────────────────
-
+// Only the owner (checked by the database, see owner.js) may read her Notion.
 async function requireOwner(req) {
   if (!token()) throw new HttpError(503, 'Notion isn’t connected yet: NOTION_TOKEN is not set on the server.')
-  if (!owner()) throw new HttpError(503, 'Notion import needs NOTION_OWNER_EMAIL set on the server.')
-  const jwt = (req.get('authorization') || '').replace(/^Bearer\s+/i, '')
-  if (!jwt) throw new HttpError(401, 'Sign in to import from Notion.')
-  const res = await fetch(`${supabaseUrl()}/auth/v1/user`, {
-    headers: { apikey: supabaseAnon(), Authorization: `Bearer ${jwt}` },
-  })
-  if (!res.ok) throw new HttpError(401, 'Your session has expired. Sign in again.')
-  const user = await res.json()
-  if ((user?.email || '').toLowerCase() !== owner())
-    throw new HttpError(403, 'Notion import is only switched on for the owner of this Notion workspace.')
-  return user
+  await requireAppOwner(req)
 }
 
 // ── talking to Notion ────────────────────────────────────────────────────────

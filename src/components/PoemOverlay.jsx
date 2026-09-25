@@ -82,9 +82,9 @@ function Slider({ min, max, step, value, onChange }) {
 // Compose a poem over an image on a canvas — real typography, crisp export.
 // Pass imageSrc to fix the image (e.g. a generated one), or omit it for the
 // standalone tool where the poet loads any image themselves.
-export default function PoemOverlay({ imageSrc, standalone = false }) {
+export default function PoemOverlay({ imageSrc, standalone = false, myPoems = null, initialPoem = '' }) {
   const [src, setSrc] = useState(imageSrc || null)
-  const [poem, setPoem] = useState('')
+  const [poem, setPoem] = useState(initialPoem)
   const [align, setAlign] = useState('left') // left | center
   const [font, setFont] = useState('serif') // serif | sans
   const [ink, setInk] = useState('#f4f1ea') // any hex colour
@@ -445,6 +445,24 @@ export default function PoemOverlay({ imageSrc, standalone = false }) {
 
       <div className={(src ? '' : 'pointer-events-none opacity-40 ') + 'mt-4 grid gap-6 lg:grid-cols-2'}>
         <div>
+          {myPoems?.length > 0 && (
+            <select
+              value=""
+              onChange={(e) => {
+                const chosen = myPoems.find((p) => p.id === e.target.value)
+                if (chosen) setPoem(chosen.text)
+              }}
+              aria-label="Choose one of my poems"
+              className="mb-2 w-full rounded-full border border-line bg-card px-4 py-2 text-sm text-body focus:border-fuchsia focus:outline-none"
+            >
+              <option value="">Choose one of my poems…</option>
+              {myPoems.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.title}
+                </option>
+              ))}
+            </select>
+          )}
           <textarea
             value={poem}
             onChange={(e) => setPoem(e.target.value)}

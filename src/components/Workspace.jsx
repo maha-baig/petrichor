@@ -52,7 +52,7 @@ function Pill({ onClick, busy, children, title }) {
  * One workspace: the prompt, its words, the mood board, and the poem —
  * every change written straight back to the store.
  */
-export default function Workspace({ workspace, onChange, onBack }) {
+export default function Workspace({ workspace, onChange, onBack, onMakePoem }) {
   const ws = workspace
   const [loadingWords, setLoadingWords] = useState(false)
   const [asking, setAsking] = useState(null)
@@ -320,6 +320,14 @@ export default function Workspace({ workspace, onChange, onBack }) {
           <h3 className="font-grotesk text-lg font-extrabold tracking-tight text-body">The poem</h3>
           <span className="text-xs text-muted">
             {poem.trim() ? `${poem.trim().split(/\s+/).length} words · saves itself` : 'saves itself as you write'}
+            {onMakePoem && poem.trim() && (
+              <button
+                onClick={() => onMakePoem(poem)}
+                className="ml-3 rounded-full border border-line px-3 py-1 text-xs text-body transition-colors hover:border-fuchsia hover:text-fuchsia"
+              >
+                Move to Poems →
+              </button>
+            )}
           </span>
         </div>
         <textarea
