@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
 import TopNav from './TopNav.jsx'
+import { heroLines } from '../library.js'
+import { isSupabaseConfigured } from '../lib/supabase.js'
 
 // The hero background: pink flowers blooming out of true black, traced with
 // fine white measuring lines. A local, self-contained clip (public/hero-flowers.mp4,
@@ -11,132 +13,67 @@ const BG_SRC = '/hero-flowers.mp4'
 const FADE_MS = 500
 const TAIL_S = 0.5 // fade out this long before the end, then loop with a fade in
 
-// Lines that keep a writer company: poems, novels, films and old sayings.
-// They are the hero's headline: typed in one at a time, held, then let go.
-const QUOTES = [
-  { q: 'Hope is the thing with feathers.', by: 'Emily Dickinson' },
-  { q: 'We are such stuff as dreams are made on.', by: 'Shakespeare, The Tempest' },
-  { q: 'I am not afraid of storms, for I am learning how to sail my ship.', by: 'Louisa May Alcott, Little Women' },
-  { q: 'So we beat on, boats against the current, borne back ceaselessly into the past.', by: 'F. Scott Fitzgerald, The Great Gatsby' },
-  { q: 'Whatever our souls are made of, his and mine are the same.', by: 'Emily Brontë, Wuthering Heights' },
-  { q: 'Not all those who wander are lost.', by: 'J.R.R. Tolkien' },
-  { q: 'Here’s looking at you, kid.', by: 'Casablanca' },
-  { q: 'After all, tomorrow is another day.', by: 'Gone with the Wind' },
-  { q: 'The world breaks everyone, and afterward many are strong at the broken places.', by: 'Ernest Hemingway, A Farewell to Arms' },
-  { q: 'Carpe diem. Seize the day.', by: 'Dead Poets Society' },
-  { q: 'I wandered lonely as a cloud.', by: 'William Wordsworth' },
-  { q: 'Do I dare disturb the universe?', by: 'T.S. Eliot' },
-  { q: 'Be patient toward all that is unsolved in your heart.', by: 'Rainer Maria Rilke' },
-  { q: 'There is no greater agony than bearing an untold story inside you.', by: 'Maya Angelou' },
-  { q: 'In the midst of winter, I found there was, within me, an invincible summer.', by: 'Albert Camus' },
-  { q: 'Just keep swimming.', by: 'Finding Nemo' },
-  { q: 'Still waters run deep.', by: 'A proverb' },
-  { q: 'Tell me, what is it you plan to do with your one wild and precious life?', by: 'Mary Oliver' },
-]
-
-const shuffled = (a) => {
-  const b = [...a]
-  for (let i = b.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[b[i], b[j]] = [b[j], b[i]]
-  }
-  return b
-}
-
 /**
- * The quotes, one after another: typed in, held, then erased quickly for the
- * next. The box keeps the height of the longest line so nothing below jumps.
- * Reduced motion: each quote simply fades in, and changes less often.
+ * Her own lines, drifting down the page from the top to the bottom and round
+ * again: the poems she has marked "Show on homepage", each followed by its
+ * title. The track is doubled so the loop has no seam.
+ * Reduced motion: the lines simply stand still.
  */
-function Quotes({ start, onTyped, className }) {
+function Drift({ poems }) {
   const reduce = useReducedMotion()
-  const [order] = useState(() => shuffled(QUOTES))
-  const [i, setI] = useState(0)
-  const [n, setN] = useState(0)
-  const [phase, setPhase] = useState('typing') // typing · holding · erasing
-  const { q, by } = order[i % order.length]
-  const text = `“${q}”`
-
-  useEffect(() => {
-    if (!start) return
-    if (reduce) {
-      onTyped?.()
-      const t = setTimeout(() => setI((k) => k + 1), 9000)
-      return () => clearTimeout(t)
+  // Enough lines to more than fill the page before the loop repeats.
+  const items = []
+  for (let k = 0; items.length < 28 && k < 30; k++)
+    for (const p of poems) {
+      p.lines.forEach((l, j) => items.push({ l, key: `${k}-${p.title}-${j}` }))
+      if (p.title) items.push({ by: p.title, key: `${k}-${p.title}-by` })
     }
-    let t
-    if (phase === 'typing') {
-      if (n < text.length) t = setTimeout(() => setN(n + 1), 34 + Math.random() * 30)
-      else
-        t = setTimeout(() => {
-          setPhase('holding')
-          onTyped?.()
-        }, 0)
-    } else if (phase === 'holding') {
-      t = setTimeout(() => setPhase('erasing'), 3200 + text.length * 45)
-    } else if (n > 0) {
-      t = setTimeout(() => setN(n - 1), 12)
-    } else {
-      t = setTimeout(() => {
-        setI((k) => k + 1)
-        setPhase('typing')
-      }, 350)
-    }
-    return () => clearTimeout(t)
-  }, [start, reduce, phase, n, text.length])
-
-  const shown = reduce ? text.length : n
-  return (
-    <figure className={className} aria-live="off">
-      {/* Every quote laid out invisibly in one grid cell: the box is as tall as the longest. */}
-      <div className="grid">
-        {QUOTES.map((x) => (
-          <span key={x.q} aria-hidden="true" className="invisible col-start-1 row-start-1">
-            “{x.q}”
-            <span className="mt-4 block text-sm">— {x.by}</span>
-          </span>
-        ))}
-        <motion.blockquote
-          key={reduce ? i : 'typed'}
-          initial={reduce ? { opacity: 0 } : false}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.8 }}
-          className="col-start-1 row-start-1"
-        >
-          <span className="sr-only">{text}</span>
-          <span aria-hidden="true">
-            {start ? text.slice(0, shown) : ''}
-            {start && !reduce && <Caret typing={phase !== 'holding'} />}
-          </span>
-          <motion.figcaption
-            animate={{ opacity: phase === 'holding' || reduce ? 1 : 0, y: phase === 'holding' || reduce ? 0 : 4 }}
-            transition={{ duration: 0.5 }}
-            className="mt-4 block font-sans text-sm not-italic tracking-wide text-white/50"
-          >
-            — {by}
-          </motion.figcaption>
-        </motion.blockquote>
-      </div>
-    </figure>
+  const seconds = Math.max(40, items.length * 2.6)
+  const track = (copy) => (
+    <div aria-hidden={copy ? 'true' : undefined} className="flex flex-col gap-5 pb-5">
+      {items.map((x) =>
+        x.by ? (
+          <p key={x.key} className="pb-6 font-sans text-xs uppercase tracking-[0.25em] text-white/35">
+            — {x.by}
+          </p>
+        ) : (
+          <p key={x.key} className="font-serif text-2xl italic leading-snug text-white/85 md:text-3xl">
+            {x.l}
+          </p>
+        ),
+      )}
+    </div>
   )
-}
-
-/** A blinking typewriter caret: solid while typing, blinking once it rests. */
-function Caret({ typing }) {
   return (
-    <motion.span
-      aria-hidden="true"
-      className="ml-[0.06em] inline-block h-[0.95em] w-[0.08em] min-w-[2px] translate-y-[0.12em] bg-fuchsia"
-      animate={typing ? { opacity: 1 } : { opacity: [1, 1, 0, 0] }}
-      transition={typing ? { duration: 0 } : { duration: 1.05, repeat: Infinity, times: [0, 0.5, 0.5, 1], ease: 'linear' }}
-    />
+    <div
+      className="hero-drift pointer-events-none absolute inset-y-0 left-0 z-[5] w-full overflow-hidden px-6 md:w-1/2 lg:px-10"
+      style={{
+        maskImage: 'linear-gradient(to bottom, transparent 0%, transparent 9%, #000 24%, #000 66%, transparent 84%)',
+        WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, transparent 9%, #000 24%, #000 66%, transparent 84%)',
+      }}
+    >
+      <style>{`
+        @keyframes hero-drift { from { transform: translateY(-50%) } to { transform: translateY(0) } }
+        .hero-drift-track { animation: hero-drift ${seconds}s linear infinite; }
+      `}</style>
+      <div className={'mx-auto max-w-xl md:ml-auto md:mr-0 md:max-w-none ' + (reduce ? '' : 'hero-drift-track')}>
+        {track(false)}
+        {track(true)}
+      </div>
+    </div>
   )
 }
 
 export default function Hero({ onEnter, role }) {
-  // Set once the first quote is on the page: the button rises in after it.
-  const [ready, setReady] = useState(false)
+  // Lines from her homepage poems: undefined while asking, [] if there are none.
+  const [poems, setPoems] = useState(undefined)
   const reduce = useReducedMotion()
+  useEffect(() => {
+    if (!isSupabaseConfigured) return setPoems([])
+    heroLines().then(setPoems, () => setPoems([]))
+  }, [])
+  const drifting = poems?.length > 0
+  const ready = poems !== undefined
 
   const videoRef = useRef(null)
   const rafRef = useRef(0)
@@ -262,6 +199,8 @@ export default function Hero({ onEnter, role }) {
         }}
       />
 
+      {drifting && <Drift poems={poems} />}
+
       <div className="relative z-10 flex min-h-screen flex-col">
         <TopNav
           tone="video"
@@ -273,14 +212,24 @@ export default function Hero({ onEnter, role }) {
 
         {/* Words on one side, the flowers on the other. On phones they stack. */}
         <main className="mx-auto grid w-full max-w-[88rem] flex-1 items-center gap-6 px-6 pb-10 md:grid-cols-[1fr_1fr] md:gap-8 lg:px-10">
-          <div className="order-2 text-center md:order-1 md:text-left">
-            <h1 className="sr-only">Petrichor: where flowers bloom</h1>
-            <Quotes
-              start
-              onTyped={() => setReady(true)}
-              className="mx-auto max-w-xl font-serif text-[min(8vw,2.25rem)] italic leading-[1.15] tracking-tight text-white md:mx-0 md:text-4xl lg:text-5xl"
-            />
-            {/* The button rises in once the first quote is set. */}
+          <div
+            className={
+              'order-2 text-center md:order-1 md:text-left ' + (drifting ? 'relative z-10 md:self-end md:pb-6' : '')
+            }
+          >
+            {drifting ? (
+              <h1 className="sr-only">Petrichor: where flowers bloom</h1>
+            ) : (
+              <motion.h1
+                initial={reduce ? false : { opacity: 0, y: 12 }}
+                animate={ready ? { opacity: 1, y: 0 } : undefined}
+                transition={{ duration: 0.8 }}
+                className="font-serif text-[min(11vw,3rem)] italic leading-[1.05] tracking-tight text-white md:text-5xl lg:text-6xl"
+              >
+                Where flowers bloom
+              </motion.h1>
+            )}
+            {/* The button rises in once the page knows what it's showing. */}
             <motion.button
               onClick={getToWork}
               initial={reduce ? false : { opacity: 0, y: 16, scale: 0.96 }}
@@ -288,7 +237,7 @@ export default function Hero({ onEnter, role }) {
               whileHover={{ scale: 1.04 }}
               whileTap={{ scale: 0.97 }}
               transition={{ type: 'spring', stiffness: 260, damping: 22 }}
-              className="mt-10 inline-flex items-center gap-2 rounded-full bg-fuchsia px-7 py-3 font-grotesk text-base font-bold text-white"
+              className={(drifting ? '' : 'mt-10 ') + 'inline-flex items-center gap-2 rounded-full bg-fuchsia px-7 py-3 font-grotesk text-base font-bold text-white shadow-[0_0_40px_12px_rgba(0,0,0,0.6)]'}
             >
               {owner ? 'Get to work' : 'Start reading'} <ArrowRight size={18} />
             </motion.button>

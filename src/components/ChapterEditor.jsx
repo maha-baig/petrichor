@@ -20,6 +20,7 @@ import {
   ListOrdered,
   Eye,
   Globe,
+  Home,
   BookOpenCheck,
   Maximize2,
   PenLine,
@@ -52,6 +53,7 @@ import {
   updatePiece,
   setPublished,
   addToBook,
+  setFeatured,
   movePieceToBook,
 } from '../library.js'
 import ToBook from './ToBook.jsx'
@@ -722,6 +724,19 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen, mode = 
     }
   }
 
+  // The homepage is public: anyone can read what's shown there.
+  async function toggleFeatured() {
+    try {
+      await save()
+      const row = await setFeatured(piece.id, !piece.featured)
+      setPiece((p) => ({ ...p, featured: row.featured }))
+      setNote(row.featured ? 'On the homepage. Anyone visiting can read its lines.' : 'Taken off the homepage.')
+      setTimeout(() => setNote(null), 3500)
+    } catch (e) {
+      setNote(e.message)
+    }
+  }
+
   // A poem into a book: a copy stays in Poems, or the poem itself moves over.
   async function poemToBook(bookId, { keep, title }) {
     await save()
@@ -823,6 +838,18 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen, mode = 
                 title="The Reviewer's reading of this poem"
               >
                 <BookOpenCheck size={13} /> Get a reading
+              </button>
+            )}
+            {poem && piece && (
+              <button
+                onClick={toggleFeatured}
+                title={piece.featured ? 'Its lines drift across the homepage. Click to take it off.' : 'Show its lines on the public homepage'}
+                className={
+                  'hidden items-center gap-1 rounded-full border px-3 py-1.5 text-xs transition-colors sm:inline-flex ' +
+                  (piece.featured ? 'border-fuchsia bg-fuchsia/10 text-fuchsia' : 'border-line text-muted hover:border-fuchsia hover:text-fuchsia')
+                }
+              >
+                <Home size={13} /> {piece.featured ? 'On homepage' : 'Show on homepage'}
               </button>
             )}
             {poem && piece && <ToBook canMove onPick={poemToBook} />}

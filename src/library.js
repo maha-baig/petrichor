@@ -382,6 +382,24 @@ export function dropDraft(id) {
 
 // ── publishing ───────────────────────────────────────────────────────────────
 
+/** Put a poem's lines on the public homepage, or take them off. */
+export async function setFeatured(id, on) {
+  return updatePiece(id, { featured: on })
+}
+
+/** Lines from the poems chosen for the homepage; anyone may ask. */
+export async function heroLines() {
+  const { data, error } = await supabase.rpc('hero_lines')
+  if (error) throw new Error(error.message)
+  return (data || []).map((p) => ({
+    title: (p.title || '').trim(),
+    lines: htmlToText(p.body)
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean),
+  })).filter((p) => p.lines.length)
+}
+
 /** Show a chapter or poem to approved readers, or take it back to drafts. */
 export async function setPublished(id, on) {
   return updatePiece(id, { published_at: on ? new Date().toISOString() : null })
@@ -415,7 +433,7 @@ export async function listPoems() {
   const poems = check(
     await supabase
       .from('pieces')
-      .select('id, work_id, title, body, words, status, position, updated_at, published_at')
+      .select('id, work_id, title, body, words, status, position, updated_at, published_at, featured')
       .in(
         'work_id',
         collections.map((c) => c.id),
