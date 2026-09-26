@@ -54,6 +54,9 @@ import {
   setPublished,
   addToBook,
   setFeatured,
+  listExcerpts,
+  addExcerpt,
+  removeExcerpt,
   movePieceToBook,
 } from '../library.js'
 import ToBook from './ToBook.jsx'
@@ -481,6 +484,8 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen, mode = 
   const [assist, setAssist] = useState(null) // the selected-text assistant's request and answer
   const [titleIdeas, setTitleIdeas] = useState(null) // null | 'loading' | string[] | { error }
   const [reading, setReading] = useState(null) // the poem's text, while a reading is open
+  const [excerpts, setExcerpts] = useState([]) // lines from this piece on the homepage
+  const [excerptsOpen, setExcerptsOpen] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [focus, setFocus] = useState(false)
   const [note, setNote] = useState(null)
@@ -724,6 +729,25 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen, mode = 
     }
   }
 
+  useEffect(() => {
+    listExcerpts(pieceId).then(setExcerpts, () => setExcerpts([]))
+  }, [pieceId])
+
+  // Selected lines onto the public homepage.
+  async function addToHomepage() {
+    if (!editor) return
+    const { from, to } = editor.state.selection
+    const text = editor.state.doc.textBetween(from, to, '\n\n', '\n')
+    try {
+      const row = await addExcerpt(pieceId, text)
+      setExcerpts((xs) => [...xs, row])
+      setNote('Added to the homepage. Anyone visiting can read these lines.')
+    } catch (e) {
+      setNote(e.message)
+    }
+    setTimeout(() => setNote(null), 3500)
+  }
+
   // The homepage is public: anyone can read what's shown there.
   async function toggleFeatured() {
     try {
@@ -853,6 +877,36 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen, mode = 
               </button>
             )}
             {poem && piece && <ToBook canMove onPick={poemToBook} />}
+            {excerpts.length > 0 && (
+              <span className="relative hidden sm:inline-flex">
+                <button
+                  onClick={() => setExcerptsOpen((v) => !v)}
+                  aria-expanded={excerptsOpen}
+                  className="inline-flex items-center gap-1 rounded-full border border-fuchsia/50 px-3 py-1.5 text-xs text-fuchsia"
+                >
+                  <Home size={13} /> Lines on homepage · {excerpts.length}
+                </button>
+                {excerptsOpen && (
+                  <div className="absolute right-0 top-full z-50 mt-2 w-80 rounded-sm border border-line bg-paper p-2 shadow-xl">
+                    {excerpts.map((x) => (
+                      <div key={x.id} className="group flex items-start gap-2 rounded-sm px-2 py-2 hover:bg-body/5">
+                        <p className="flex-1 whitespace-pre-wrap font-serif text-sm italic text-body">{x.body}</p>
+                        <button
+                          onClick={async () => {
+                            await removeExcerpt(x.id)
+                            setExcerpts((xs) => xs.filter((y) => y.id !== x.id))
+                          }}
+                          aria-label="Take off the homepage"
+                          className="shrink-0 p-0.5 text-muted hover:text-fuchsia"
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </span>
+            )}
             <span className="flex items-center rounded-full border border-line p-0.5" role="group" aria-label="View">
               <button
                 onClick={() => setView('write')}
@@ -975,6 +1029,15 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen, mode = 
                     {{ fix: 'Fix', suggest: 'Suggest', tighten: 'Tighten', ask: 'Ask' }[m]}
                   </button>
                 ))}
+                <span className="mx-0.5 h-4 w-px bg-line" aria-hidden />
+                <button
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={addToHomepage}
+                  title="Show these lines on the public homepage"
+                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-grotesk text-xs text-body transition-colors hover:bg-fuchsia/10 hover:text-fuchsia"
+                >
+                  <Home size={12} /> Homepage
+                </button>
               </div>
             </BubbleMenu>
           )}

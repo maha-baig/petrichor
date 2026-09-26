@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
 import TopNav from './TopNav.jsx'
@@ -14,51 +14,85 @@ const FADE_MS = 500
 const TAIL_S = 0.5 // fade out this long before the end, then loop with a fade in
 
 /**
- * Her own lines, drifting down the page from the top to the bottom and round
- * again: the poems she has marked "Show on homepage", each followed by its
- * title. The track is doubled so the loop has no seam.
- * Reduced motion: the lines simply stand still.
+ * Her own lines, drifting down the page from the top to the bottom: each one
+ * once per pass, with no names attached. When the last has passed, a new pass
+ * begins, in a fresh order, from the top. Reduced motion: the lines stand still.
  */
 function Drift({ poems }) {
   const reduce = useReducedMotion()
-  // Enough lines to more than fill the page before the loop repeats.
-  const items = []
-  for (let k = 0; items.length < 28 && k < 30; k++)
-    for (const p of poems) {
-      p.lines.forEach((l, j) => items.push({ l, key: `${k}-${p.title}-${j}` }))
-      if (p.title) items.push({ by: p.title, key: `${k}-${p.title}-by` })
+  const box = useRef(null)
+  const track = useRef(null)
+  const [pass, setPass] = useState(0)
+  const [size, setSize] = useState(null) // { box, track } heights in px
+
+  // Every distinct line, poems kept whole but in a random order each pass.
+  const lines = useMemo(() => {
+    const order = [...poems]
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[order[i], order[j]] = [order[j], order[i]]
     }
-  const seconds = Math.max(40, items.length * 2.6)
-  const track = (copy) => (
-    <div aria-hidden={copy ? 'true' : undefined} className="flex flex-col gap-5 pb-5">
-      {items.map((x) =>
-        x.by ? (
-          <p key={x.key} className="pb-6 font-sans text-xs uppercase tracking-[0.25em] text-white/35">
-            — {x.by}
-          </p>
-        ) : (
-          <p key={x.key} className="font-serif text-2xl italic leading-snug text-white/85 md:text-3xl">
-            {x.l}
-          </p>
-        ),
-      )}
-    </div>
-  )
+    const seen = new Set()
+    const out = []
+    for (const p of order) {
+      const mine = p.lines.filter((l) => {
+        const k = l.toLowerCase()
+        if (seen.has(k)) return false
+        seen.add(k)
+        return true
+      })
+      if (mine.length) out.push(mine)
+    }
+    return out
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [poems, pass])
+
+  useEffect(() => {
+    const measure = () => box.current && track.current && setSize({ box: box.current.offsetHeight, track: track.current.offsetHeight })
+    measure()
+    const ro = new ResizeObserver(measure)
+    box.current && ro.observe(box.current)
+    track.current && ro.observe(track.current)
+    return () => ro.disconnect()
+  }, [lines])
+
+  const PX_PER_S = 26
+  const moving = !reduce && size
+  const seconds = size ? (size.box + size.track) / PX_PER_S : 0
+
   return (
     <div
-      className="hero-drift pointer-events-none absolute inset-y-0 left-0 z-[5] w-full overflow-hidden px-6 md:w-1/2 lg:px-10"
+      ref={box}
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-y-0 left-0 z-[5] w-full overflow-hidden px-6 md:w-1/2 lg:px-10"
       style={{
         maskImage: 'linear-gradient(to bottom, transparent 0%, transparent 9%, #000 24%, #000 66%, transparent 84%)',
         WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, transparent 9%, #000 24%, #000 66%, transparent 84%)',
       }}
     >
-      <style>{`
-        @keyframes hero-drift { from { transform: translateY(-50%) } to { transform: translateY(0) } }
-        .hero-drift-track { animation: hero-drift ${seconds}s linear infinite; }
-      `}</style>
-      <div className={'mx-auto max-w-xl md:ml-auto md:mr-0 md:max-w-none ' + (reduce ? '' : 'hero-drift-track')}>
-        {track(false)}
-        {track(true)}
+      {moving && (
+        <style>{`@keyframes hero-drift-${pass} { from { transform: translateY(-100%) } to { transform: translateY(${size.box}px) } }`}</style>
+      )}
+      <div
+        key={pass}
+        ref={track}
+        onAnimationEnd={() => setPass((n) => n + 1)}
+        className="mx-auto flex max-w-xl flex-col gap-5 md:ml-auto md:mr-0 md:max-w-none"
+        style={
+          moving
+            ? { animation: `hero-drift-${pass} ${seconds}s linear 1 both` }
+            : { transform: reduce ? 'translateY(12vh)' : 'translateY(-100%)' }
+        }
+      >
+        {lines.map((poem, i) => (
+          <div key={i} className="flex flex-col gap-5 pb-10">
+            {poem.map((l) => (
+              <p key={l} className="font-serif text-2xl italic leading-snug text-white/85 md:text-3xl">
+                {l}
+              </p>
+            ))}
+          </div>
+        ))}
       </div>
     </div>
   )

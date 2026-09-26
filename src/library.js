@@ -387,17 +387,34 @@ export async function setFeatured(id, on) {
   return updatePiece(id, { featured: on })
 }
 
-/** Lines from the poems chosen for the homepage; anyone may ask. */
+/** Lines chosen for the homepage (whole poems, and lines picked from books); anyone may ask. */
 export async function heroLines() {
   const { data, error } = await supabase.rpc('hero_lines')
   if (error) throw new Error(error.message)
-  return (data || []).map((p) => ({
-    title: (p.title || '').trim(),
-    lines: htmlToText(p.body)
-      .split('\n')
-      .map((l) => l.trim())
-      .filter(Boolean),
-  })).filter((p) => p.lines.length)
+  return (data || [])
+    .map((p) => ({
+      lines: (p.plain ? String(p.body || '') : htmlToText(p.body))
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean),
+    }))
+    .filter((p) => p.lines.length)
+}
+
+// ── lines picked from a chapter for the homepage ─────────────────────────────
+
+export async function listExcerpts(pieceId) {
+  return check(await supabase.from('hero_excerpts').select('*').eq('piece_id', pieceId).order('created_at', { ascending: true }))
+}
+
+export async function addExcerpt(pieceId, text) {
+  const body = String(text).replace(/\n{2,}/g, '\n').trim().slice(0, 600)
+  if (!body) throw new Error('Select some lines first.')
+  return check(await supabase.from('hero_excerpts').insert({ piece_id: pieceId, body }).select().single())
+}
+
+export async function removeExcerpt(id) {
+  check(await supabase.from('hero_excerpts').delete().eq('id', id))
 }
 
 /** Show a chapter or poem to approved readers, or take it back to drafts. */
