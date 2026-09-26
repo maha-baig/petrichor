@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { FolderPlus, Plus } from 'lucide-react'
+import { ShelfSwitch } from './Books.jsx'
 import { createPoem, createPoemCollection, htmlToText, listPoems } from '../library.js'
 
 function when(iso) {
@@ -21,7 +22,7 @@ const opening = (body) =>
     .slice(0, 3)
 
 /** Her poems: every one on a card, filterable by collection. */
-export default function Poems({ onOpen }) {
+export default function Poems({ onOpen, onBooks }) {
   const [data, setData] = useState(null) // { collections, poems }
   const [filter, setFilter] = useState('all')
   const [busy, setBusy] = useState(false)
@@ -70,6 +71,7 @@ export default function Poems({ onOpen }) {
 
   return (
     <section>
+      {onBooks && <ShelfSwitch active="poems" onSwitch={onBooks} />}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <h1 className="font-serif text-4xl italic leading-tight text-ink sm:text-5xl">Your poems</h1>
         <button

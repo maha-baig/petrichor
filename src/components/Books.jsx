@@ -8,10 +8,35 @@ import { ACCEPT, importAsNewBook } from '../importDoc.js'
 import { importNotionAsBook } from '../notionImport.js'
 import NotionPicker from './NotionPicker.jsx'
 
+/** Books and Poems share one place: a switch between the two shelves. */
+export function ShelfSwitch({ active, onSwitch }) {
+  return (
+    <div className="mb-6 inline-flex rounded-full border border-line p-0.5 text-sm" role="tablist" aria-label="Shelf">
+      {[
+        ['library', 'Books'],
+        ['poems', 'Poems'],
+      ].map(([t, l]) => (
+        <button
+          key={t}
+          role="tab"
+          aria-selected={active === t}
+          onClick={() => active !== t && onSwitch(t)}
+          className={
+            'rounded-full px-4 py-1 font-grotesk font-medium transition-colors ' +
+            (active === t ? 'bg-fuchsia text-white' : 'text-muted hover:text-body')
+          }
+        >
+          {l}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 const fmt = (n) => Number(n || 0).toLocaleString()
 
 /** Her shelf: every book as its cover, and an empty slot for the next one. */
-export default function Books({ onOpen }) {
+export default function Books({ onOpen, onPoems }) {
   const session = useSession()
   const [works, setWorks] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -144,6 +169,7 @@ export default function Books({ onOpen }) {
 
   return (
     <section>
+      {onPoems && <ShelfSwitch active="library" onSwitch={onPoems} />}
       {notionOpen && <NotionPicker verb="Import as a book" onPick={fromNotion} onClose={() => setNotionOpen(false)} />}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <h1 className="font-serif text-4xl italic leading-tight text-ink sm:text-5xl">Your books</h1>

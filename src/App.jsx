@@ -166,7 +166,7 @@ export default function App() {
   const appView = (
       <div className="relative z-[1] min-h-screen">
             <ThemeToggle />
-            <TopNav tone="app" active={tab === 'work' ? 'inspire' : tab} role={role} unseen={unseen} onNavigate={navigate} />
+            <TopNav tone="app" active={tab === 'work' ? 'inspire' : tab === 'poems' ? 'library' : tab} role={role} unseen={unseen} onNavigate={navigate} />
 
             {/* A book page wants more room than a tool; the editor takes the full width. */}
             <div
@@ -211,7 +211,7 @@ export default function App() {
                       ) : workId ? (
                         <Book workId={workId} onBack={() => setWorkId(null)} onWrite={(p) => setPieceId(p.id)} />
                       ) : (
-                        <Books onOpen={setWorkId} />
+                        <Books onOpen={setWorkId} onPoems={() => navigate('poems')} />
                       ))}
 
                     {t === 'poems' && owner &&
@@ -225,7 +225,7 @@ export default function App() {
                           onOpen={(p) => setPoem({ id: p.id, work_id: p.work_id || poem.work_id })}
                         />
                       ) : (
-                        <Poems onOpen={(p) => setPoem({ id: p.id, work_id: p.work_id })} />
+                        <Poems onOpen={(p) => setPoem({ id: p.id, work_id: p.work_id })} onBooks={() => navigate('library')} />
                       ))}
 
                     {t === 'inspire' && owner && (

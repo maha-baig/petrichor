@@ -8,7 +8,6 @@ import { signOut, useSession } from '../auth.jsx'
 const OWNER_LINKS = [
   { l: 'Home', t: 'home' },
   { l: 'Books', t: 'library' },
-  { l: 'Poems', t: 'poems' },
   { l: 'Inspiration', t: 'inspire' },
   { l: 'Image', t: 'image' },
   { l: 'Read', t: 'read' },
