@@ -196,6 +196,7 @@ export async function restoreBackup(file, onProgress = () => {}) {
           cover_color: book.cover_color || '#2a1f2d',
           goal_words: book.goal_words || 0,
           kind: book.kind || 'book',
+          genre: book.genre || '',
         })
         .select()
         .single(),

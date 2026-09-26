@@ -425,13 +425,37 @@ export async function listPoems() {
   return { collections, poems }
 }
 
+/** The position after the last piece in a work. */
+async function nextPosition(workId) {
+  const last = check(
+    await supabase.from('pieces').select('position').eq('work_id', workId).order('position', { ascending: false }).limit(1),
+  )
+  return (last[0]?.position ?? -1) + 1
+}
+
 /** A new poem at the end of a collection (the first one, if none is named). */
 export async function createPoem({ workId, title = '', body = '' } = {}) {
   const collection = workId ? { id: workId } : await ensurePoemCollection()
-  const last = check(
-    await supabase.from('pieces').select('position').eq('work_id', collection.id).order('position', { ascending: false }).limit(1),
-  )
-  return createPiece(collection.id, { kind: 'chapter', position: (last[0]?.position ?? -1) + 1, title, body })
+  return createPiece(collection.id, { kind: 'chapter', position: await nextPosition(collection.id), title, body })
+}
+
+// ── poems into books ─────────────────────────────────────────────────────────
+
+/** A copy of some writing as a new chapter at the end of a book. */
+export async function addToBook(workId, { title = '', body = '' } = {}) {
+  return createPiece(workId, { kind: 'chapter', position: await nextPosition(workId), title, body })
+}
+
+/** Move a poem (with its history) to the end of a book, as a chapter. */
+export async function movePieceToBook(id, workId) {
+  return updatePiece(id, { work_id: workId, kind: 'chapter', position: await nextPosition(workId) })
+}
+
+/** Every genre in use, for suggestions. */
+export async function listGenres() {
+  const uid = await userId()
+  const rows = check(await supabase.from('works').select('genre').eq('user_id', uid).eq('kind', 'book'))
+  return [...new Set(rows.map((r) => (r.genre || '').trim()).filter(Boolean))].sort()
 }
 
 export async function movePoem(id, workId) {

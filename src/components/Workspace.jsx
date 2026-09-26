@@ -8,6 +8,9 @@ import {
   downloadPoem,
 } from '../download.js'
 import MoodBoard from './MoodBoard.jsx'
+import ToBook from './ToBook.jsx'
+import { addToBook } from '../library.js'
+import { textToHtml } from '../importDoc.js'
 
 function Chip({ children, copyable }) {
   const [copied, setCopied] = useState(false)
@@ -327,6 +330,11 @@ export default function Workspace({ workspace, onChange, onBack, onMakePoem }) {
               >
                 Move to Poems →
               </button>
+            )}
+            {poem.trim() && (
+              <span className="ml-2">
+                <ToBook label="Copy to book" onPick={(bookId) => addToBook(bookId, { title: workspaceTitle(ws), body: textToHtml(poem) })} />
+              </span>
             )}
           </span>
         </div>

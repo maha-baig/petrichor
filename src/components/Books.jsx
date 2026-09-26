@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { DownloadCloud, FileUp, Plus, Upload } from 'lucide-react'
 import { useSession } from '../auth.jsx'
 import BookCover from './BookCover.jsx'
-import { bookTitle, createWork, listWorks } from '../library.js'
+import { bookTitle, createWork, listWorks, updateWork } from '../library.js'
 import { BACKUP_EVERY_DAYS, daysSince, downloadBackup, lastBackupAt, restoreBackup } from '../backup.js'
 import { ACCEPT, importAsNewBook } from '../importDoc.js'
 import { importNotionAsBook } from '../notionImport.js'
@@ -112,11 +112,29 @@ export default function Books({ onOpen }) {
   const age = daysSince(lastBackup)
   const overdue = hasWriting && lastBackup !== undefined && (age === null || age >= BACKUP_EVERY_DAYS)
 
+  // The shelf by genre: named genres A–Z, then the books without one.
+  const [genre, setGenre] = useState('All')
+  const OTHER = 'Other'
+  const byGenre = new Map()
+  for (const w of works || []) {
+    const g = (w.genre || '').trim() || OTHER
+    if (!byGenre.has(g)) byGenre.set(g, [])
+    byGenre.get(g).push(w)
+  }
+  const sections = [...byGenre.keys()]
+    .sort((a, b) => (a === OTHER) - (b === OTHER) || a.localeCompare(b))
+    .map((g) => ({ genre: g, books: byGenre.get(g) }))
+  if (!sections.length) sections.push({ genre: OTHER, books: [] })
+  const filtered = sections.filter((x) => x.genre === genre)
+  const shown = genre === 'All' || !filtered.length ? sections : filtered
+
   async function start() {
     setBusy(true)
     setError(null)
     try {
-      const work = await createWork()
+      let work = await createWork()
+      // Started from a genre's shelf: it belongs there.
+      if (genre !== 'All' && genre !== OTHER) work = await updateWork(work.id, { genre })
       onOpen(work.id)
     } catch (e) {
       setError(e.message)
@@ -235,35 +253,65 @@ export default function Books({ onOpen }) {
       {works === null && !error && <p className="mt-10 font-serif italic text-muted">Taking down the books…</p>}
 
       {works && (
-        <ul className="stagger mt-10 grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 md:grid-cols-4">
-          {works.map((w) => (
-            <li key={w.id}>
-              <button onClick={() => onOpen(w.id)} className="group block w-full text-left">
-                <div className="transition-transform duration-300 group-hover:-translate-y-1.5">
-                  <BookCover work={w} />
-                </div>
-                <div className="mt-3 font-serif text-lg italic leading-tight text-ink group-hover:text-fuchsia">
-                  {bookTitle(w)}
-                </div>
-                <div className="mt-0.5 text-xs text-muted">
-                  {w.chapters} {w.chapters === 1 ? 'chapter' : 'chapters'} · {fmt(w.words)} words
-                </div>
-              </button>
-            </li>
-          ))}
+        <>
+          {/* Genres: chips to filter, and on "All" the shelf is split by genre. */}
+          {sections.length > 1 && (
+            <div className="mt-8 flex flex-wrap gap-2 text-sm">
+              {['All', ...sections.map((x) => x.genre)].map((g) => (
+                <button
+                  key={g}
+                  onClick={() => setGenre(g)}
+                  className={
+                    'rounded-full border px-3 py-1 transition-colors ' +
+                    (genre === g ? 'border-fuchsia bg-fuchsia/10 text-fuchsia' : 'border-line text-muted hover:text-body')
+                  }
+                >
+                  {g}
+                </button>
+              ))}
+            </div>
+          )}
+          {shown.map((sec, i) => (
+            <div key={sec.genre} className={sections.length > 1 ? 'mt-10' : ''}>
+              {sections.length > 1 && (
+                <h2 className="font-grotesk text-[0.72rem] font-bold uppercase tracking-[0.2em] text-muted">
+                  {sec.genre} · {sec.books.length}
+                </h2>
+              )}
+              <ul className={'stagger grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 md:grid-cols-4 ' + (sections.length > 1 ? 'mt-5' : 'mt-10')}>
+                {sec.books.map((w) => (
+                  <li key={w.id}>
+                    <button onClick={() => onOpen(w.id)} className="group block w-full text-left">
+                      <div className="transition-transform duration-300 group-hover:-translate-y-1.5">
+                        <BookCover work={w} />
+                      </div>
+                      <div className="mt-3 font-serif text-lg italic leading-tight text-ink group-hover:text-fuchsia">
+                        {bookTitle(w)}
+                      </div>
+                      <div className="mt-0.5 text-xs text-muted">
+                        {w.chapters} {w.chapters === 1 ? 'chapter' : 'chapters'} · {fmt(w.words)} words
+                      </div>
+                    </button>
+                  </li>
+                ))}
 
-          {/* A new book sits on the shelf as an empty slot. */}
-          <li>
-            <button
-              onClick={start}
-              disabled={busy}
-              className="group flex aspect-[2/3] w-full flex-col items-center justify-center gap-2 rounded-[3px] border border-dashed border-line text-muted transition-colors hover:border-fuchsia hover:text-fuchsia disabled:opacity-60"
-            >
-              <Plus size={26} strokeWidth={1.5} />
-              <span className="font-grotesk text-sm font-bold">{busy ? 'Opening…' : 'New book'}</span>
-            </button>
-          </li>
-        </ul>
+                {/* A new book sits on the shelf as an empty slot, at the end. */}
+                {i === shown.length - 1 && (
+                  <li>
+                    <button
+                      onClick={start}
+                      disabled={busy}
+                      className="group flex aspect-[2/3] w-full flex-col items-center justify-center gap-2 rounded-[3px] border border-dashed border-line text-muted transition-colors hover:border-fuchsia hover:text-fuchsia disabled:opacity-60"
+                    >
+                      <Plus size={26} strokeWidth={1.5} />
+                      <span className="font-grotesk text-sm font-bold">{busy ? 'Opening…' : 'New book'}</span>
+                    </button>
+                  </li>
+                )}
+              </ul>
+            </div>
+          ))}
+        </>
       )}
     </section>
   )

@@ -51,7 +51,10 @@ import {
   snapshot,
   updatePiece,
   setPublished,
+  addToBook,
+  movePieceToBook,
 } from '../library.js'
+import ToBook from './ToBook.jsx'
 import { assistText, suggestTitles } from '../assist.js'
 import { getReview } from '../api.js'
 
@@ -719,6 +722,18 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen, mode = 
     }
   }
 
+  // A poem into a book: a copy stays in Poems, or the poem itself moves over.
+  async function poemToBook(bookId, { keep, title }) {
+    await save()
+    const { title: t, body: b } = latest.current
+    if (keep) {
+      await addToBook(bookId, { title: t, body: b })
+      return `Copied into “${title}”.`
+    }
+    await movePieceToBook(pieceId, bookId)
+    onBack()
+  }
+
   function ideasForTitle() {
     if (!editor) return
     const text = editor.getText()
@@ -810,6 +825,7 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen, mode = 
                 <BookOpenCheck size={13} /> Get a reading
               </button>
             )}
+            {poem && piece && <ToBook canMove onPick={poemToBook} />}
             <span className="flex items-center rounded-full border border-line p-0.5" role="group" aria-label="View">
               <button
                 onClick={() => setView('write')}

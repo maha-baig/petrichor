@@ -14,6 +14,7 @@ import {
   reorderPieces,
   updateWork,
   uploadCover,
+  listGenres,
 } from '../library.js'
 import { TRIMS, downloadEpub, downloadText, printManuscript } from '../manuscriptExport.js'
 import { ACCEPT, importIntoBook } from '../importDoc.js'
@@ -120,6 +121,7 @@ function ExportMenu({ workId }) {
  * parts, chapters and sections — each of which opens in the editor.
  */
 export default function Book({ workId, onBack, onWrite }) {
+  const [genres, setGenres] = useState(null) // suggestions, fetched on first focus
   const [work, setWork] = useState(null)
   const [pieces, setPieces] = useState([])
   const [error, setError] = useState(null)
@@ -337,6 +339,25 @@ export default function Book({ workId, onBack, onWrite }) {
               aria-label="Author"
               className="min-w-0 flex-1 bg-transparent text-body placeholder:text-muted/50 focus:outline-none"
             />
+          </div>
+          <div className="mt-2 flex items-center gap-2 text-sm text-muted">
+            <span>genre</span>
+            <input
+              defaultValue={work.genre || ''}
+              key={work.genre}
+              list="petrichor-genres"
+              onFocus={() => genres === null && listGenres().then(setGenres, () => setGenres([]))}
+              onBlur={(e) => e.target.value.trim() !== (work.genre || '') && change({ genre: e.target.value.trim() })}
+              onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+              placeholder="Poetry, Fiction, Essays…"
+              aria-label="Genre"
+              className="min-w-0 flex-1 bg-transparent text-body placeholder:text-muted/50 focus:outline-none"
+            />
+            <datalist id="petrichor-genres">
+              {[...new Set([...(genres || []), 'Poetry', 'Fiction', 'Short stories', 'Essays', 'Memoir'])].map((g) => (
+                <option key={g} value={g} />
+              ))}
+            </datalist>
           </div>
 
           <div className="mt-6 border-t border-line pt-5">
