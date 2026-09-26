@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { animate, motion, useMotionValue, useMotionValueEvent, useReducedMotion, useSpring, useTransform } from 'framer-motion'
+import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
 import TopNav from './TopNav.jsx'
 
@@ -11,14 +11,8 @@ const BG_SRC = '/hero-flowers.mp4'
 const FADE_MS = 500
 const TAIL_S = 0.5 // fade out this long before the end, then loop with a fade in
 
-// The hero's words, typed out one after another. `cps` is characters per
-// second: the title is struck slowly, the prose runs on quicker.
-const LINES = [
-  { key: 'title', text: 'Where flowers bloom', cps: 14, pause: 0.45 },
-]
-
 // Lines that keep a writer company: poems, novels, films and old sayings.
-// Typed in one at a time under the title, held for a while, then let go.
+// They are the hero's headline: typed in one at a time, held, then let go.
 const QUOTES = [
   { q: 'Hope is the thing with feathers.', by: 'Emily Dickinson' },
   { q: 'We are such stuff as dreams are made on.', by: 'Shakespeare, The Tempest' },
@@ -54,7 +48,7 @@ const shuffled = (a) => {
  * next. The box keeps the height of the longest line so nothing below jumps.
  * Reduced motion: each quote simply fades in, and changes less often.
  */
-function Quotes({ start, className }) {
+function Quotes({ start, onTyped, className }) {
   const reduce = useReducedMotion()
   const [order] = useState(() => shuffled(QUOTES))
   const [i, setI] = useState(0)
@@ -66,13 +60,18 @@ function Quotes({ start, className }) {
   useEffect(() => {
     if (!start) return
     if (reduce) {
+      onTyped?.()
       const t = setTimeout(() => setI((k) => k + 1), 9000)
       return () => clearTimeout(t)
     }
     let t
     if (phase === 'typing') {
       if (n < text.length) t = setTimeout(() => setN(n + 1), 34 + Math.random() * 30)
-      else t = setTimeout(() => setPhase('holding'), 0)
+      else
+        t = setTimeout(() => {
+          setPhase('holding')
+          onTyped?.()
+        }, 0)
     } else if (phase === 'holding') {
       t = setTimeout(() => setPhase('erasing'), 3200 + text.length * 45)
     } else if (n > 0) {
@@ -94,7 +93,7 @@ function Quotes({ start, className }) {
         {QUOTES.map((x) => (
           <span key={x.q} aria-hidden="true" className="invisible col-start-1 row-start-1">
             “{x.q}”
-            <span className="mt-3 block text-sm">— {x.by}</span>
+            <span className="mt-4 block text-sm">— {x.by}</span>
           </span>
         ))}
         <motion.blockquote
@@ -112,7 +111,7 @@ function Quotes({ start, className }) {
           <motion.figcaption
             animate={{ opacity: phase === 'holding' || reduce ? 1 : 0, y: phase === 'holding' || reduce ? 0 : 4 }}
             transition={{ duration: 0.5 }}
-            className="mt-3 block font-sans text-sm not-italic tracking-wide text-white/50"
+            className="mt-4 block font-sans text-sm not-italic tracking-wide text-white/50"
           >
             — {by}
           </motion.figcaption>
@@ -134,59 +133,10 @@ function Caret({ typing }) {
   )
 }
 
-/**
- * One line, typed. A Framer motion value counts the characters in; the typed
- * part is shown, the rest is laid out but invisible — so the block never
- * reflows as it types.
- */
-function Typed({ as: Tag = 'p', text, cps, pause = 0, start, caret, onDone, className }) {
-  const reduce = useReducedMotion()
-  const count = useMotionValue(reduce ? text.length : 0)
-  const [n, setN] = useState(reduce ? text.length : 0)
-  useMotionValueEvent(count, 'change', (v) => setN(Math.round(v)))
-
-  useEffect(() => {
-    if (!start) return
-    if (reduce) {
-      onDone?.()
-      return
-    }
-    const controls = animate(count, text.length, {
-      duration: text.length / cps,
-      ease: 'linear',
-      onComplete: () => setTimeout(() => onDone?.(), pause * 1000),
-    })
-    return () => controls.stop()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [start])
-
-  return (
-    // The untyped rest is only invisible, not absent, so the element's text
-    // (for screen readers, and for anything reading the page) is whole and
-    // said once. The caret is decoration and hidden from them.
-    <Tag className={className}>
-      {text.slice(0, n)}
-      {caret && <Caret typing={n < text.length} />}
-      <span className="opacity-0">{text.slice(n)}</span>
-    </Tag>
-  )
-}
-
 export default function Hero({ onEnter, role }) {
-  // Which line is typing now; LINES.length once everything is on the page.
-  const [step, setStep] = useState(0)
-  const next = () => setStep((s) => s + 1)
+  // Set once the first quote is on the page: the button rises in after it.
+  const [ready, setReady] = useState(false)
   const reduce = useReducedMotion()
-  const typed = (i, props) => (
-    <Typed
-      {...LINES[i]}
-      start={step >= i}
-      // the caret follows the typing, then moves on to the quotes
-      caret={step === i}
-      onDone={step === i ? next : undefined}
-      {...props}
-    />
-  )
 
   const videoRef = useRef(null)
   const rafRef = useRef(0)
@@ -324,24 +274,21 @@ export default function Hero({ onEnter, role }) {
         {/* Words on one side, the flowers on the other. On phones they stack. */}
         <main className="mx-auto grid w-full max-w-[88rem] flex-1 items-center gap-6 px-6 pb-10 md:grid-cols-[1fr_1fr] md:gap-8 lg:px-10">
           <div className="order-2 text-center md:order-1 md:text-left">
-            {typed(0, {
-              as: 'h1',
-              className:
-                'font-serif text-[min(11vw,3rem)] italic leading-[1.05] tracking-tight text-white md:text-5xl lg:text-6xl',
-            })}
+            <h1 className="sr-only">Petrichor: where flowers bloom</h1>
             <Quotes
-              start={step >= LINES.length}
-              className="mx-auto mt-6 max-w-md font-serif text-xl italic leading-snug text-white/80 md:mx-0 md:text-2xl"
+              start
+              onTyped={() => setReady(true)}
+              className="mx-auto max-w-xl font-serif text-[min(8vw,2.25rem)] italic leading-[1.15] tracking-tight text-white md:mx-0 md:text-4xl lg:text-5xl"
             />
-            {/* The button doesn't wait for all the prose: it rises in once the title is set. */}
+            {/* The button rises in once the first quote is set. */}
             <motion.button
               onClick={getToWork}
               initial={reduce ? false : { opacity: 0, y: 16, scale: 0.96 }}
-              animate={step >= 1 ? { opacity: 1, y: 0, scale: 1 } : undefined}
+              animate={ready ? { opacity: 1, y: 0, scale: 1 } : undefined}
               whileHover={{ scale: 1.04 }}
               whileTap={{ scale: 0.97 }}
               transition={{ type: 'spring', stiffness: 260, damping: 22 }}
-              className="mt-8 inline-flex items-center gap-2 rounded-full bg-fuchsia px-7 py-3 font-grotesk text-base font-bold text-white"
+              className="mt-10 inline-flex items-center gap-2 rounded-full bg-fuchsia px-7 py-3 font-grotesk text-base font-bold text-white"
             >
               {owner ? 'Get to work' : 'Start reading'} <ArrowRight size={18} />
             </motion.button>
