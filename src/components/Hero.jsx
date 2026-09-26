@@ -15,13 +15,112 @@ const TAIL_S = 0.5 // fade out this long before the end, then loop with a fade i
 // second: the title is struck slowly, the prose runs on quicker.
 const LINES = [
   { key: 'title', text: 'Where flowers bloom', cps: 14, pause: 0.45 },
-  {
-    key: 'lede',
-    text: 'A quiet place to write: poems, books, and the long work in between. Shape chapters into a book, keep every draft, and find a way in when the page is blank.',
-    cps: 60,
-    pause: 0,
-  },
 ]
+
+// Lines that keep a writer company: poems, novels, films and old sayings.
+// Typed in one at a time under the title, held for a while, then let go.
+const QUOTES = [
+  { q: 'Hope is the thing with feathers.', by: 'Emily Dickinson' },
+  { q: 'We are such stuff as dreams are made on.', by: 'Shakespeare, The Tempest' },
+  { q: 'I am not afraid of storms, for I am learning how to sail my ship.', by: 'Louisa May Alcott, Little Women' },
+  { q: 'So we beat on, boats against the current, borne back ceaselessly into the past.', by: 'F. Scott Fitzgerald, The Great Gatsby' },
+  { q: 'Whatever our souls are made of, his and mine are the same.', by: 'Emily Brontë, Wuthering Heights' },
+  { q: 'Not all those who wander are lost.', by: 'J.R.R. Tolkien' },
+  { q: 'Here’s looking at you, kid.', by: 'Casablanca' },
+  { q: 'After all, tomorrow is another day.', by: 'Gone with the Wind' },
+  { q: 'The world breaks everyone, and afterward many are strong at the broken places.', by: 'Ernest Hemingway, A Farewell to Arms' },
+  { q: 'Carpe diem. Seize the day.', by: 'Dead Poets Society' },
+  { q: 'I wandered lonely as a cloud.', by: 'William Wordsworth' },
+  { q: 'Do I dare disturb the universe?', by: 'T.S. Eliot' },
+  { q: 'Be patient toward all that is unsolved in your heart.', by: 'Rainer Maria Rilke' },
+  { q: 'There is no greater agony than bearing an untold story inside you.', by: 'Maya Angelou' },
+  { q: 'In the midst of winter, I found there was, within me, an invincible summer.', by: 'Albert Camus' },
+  { q: 'Just keep swimming.', by: 'Finding Nemo' },
+  { q: 'Still waters run deep.', by: 'A proverb' },
+  { q: 'Tell me, what is it you plan to do with your one wild and precious life?', by: 'Mary Oliver' },
+]
+
+const shuffled = (a) => {
+  const b = [...a]
+  for (let i = b.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[b[i], b[j]] = [b[j], b[i]]
+  }
+  return b
+}
+
+/**
+ * The quotes, one after another: typed in, held, then erased quickly for the
+ * next. The box keeps the height of the longest line so nothing below jumps.
+ * Reduced motion: each quote simply fades in, and changes less often.
+ */
+function Quotes({ start, className }) {
+  const reduce = useReducedMotion()
+  const [order] = useState(() => shuffled(QUOTES))
+  const [i, setI] = useState(0)
+  const [n, setN] = useState(0)
+  const [phase, setPhase] = useState('typing') // typing · holding · erasing
+  const { q, by } = order[i % order.length]
+  const text = `“${q}”`
+
+  useEffect(() => {
+    if (!start) return
+    if (reduce) {
+      const t = setTimeout(() => setI((k) => k + 1), 9000)
+      return () => clearTimeout(t)
+    }
+    let t
+    if (phase === 'typing') {
+      if (n < text.length) t = setTimeout(() => setN(n + 1), 34 + Math.random() * 30)
+      else t = setTimeout(() => setPhase('holding'), 0)
+    } else if (phase === 'holding') {
+      t = setTimeout(() => setPhase('erasing'), 3200 + text.length * 45)
+    } else if (n > 0) {
+      t = setTimeout(() => setN(n - 1), 12)
+    } else {
+      t = setTimeout(() => {
+        setI((k) => k + 1)
+        setPhase('typing')
+      }, 350)
+    }
+    return () => clearTimeout(t)
+  }, [start, reduce, phase, n, text.length])
+
+  const shown = reduce ? text.length : n
+  return (
+    <figure className={className} aria-live="off">
+      {/* Every quote laid out invisibly in one grid cell: the box is as tall as the longest. */}
+      <div className="grid">
+        {QUOTES.map((x) => (
+          <span key={x.q} aria-hidden="true" className="invisible col-start-1 row-start-1">
+            “{x.q}”
+            <span className="mt-3 block text-sm">— {x.by}</span>
+          </span>
+        ))}
+        <motion.blockquote
+          key={reduce ? i : 'typed'}
+          initial={reduce ? { opacity: 0 } : false}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.8 }}
+          className="col-start-1 row-start-1"
+        >
+          <span className="sr-only">{text}</span>
+          <span aria-hidden="true">
+            {start ? text.slice(0, shown) : ''}
+            {start && !reduce && <Caret typing={phase !== 'holding'} />}
+          </span>
+          <motion.figcaption
+            animate={{ opacity: phase === 'holding' || reduce ? 1 : 0, y: phase === 'holding' || reduce ? 0 : 4 }}
+            transition={{ duration: 0.5 }}
+            className="mt-3 block font-sans text-sm not-italic tracking-wide text-white/50"
+          >
+            — {by}
+          </motion.figcaption>
+        </motion.blockquote>
+      </div>
+    </figure>
+  )
+}
 
 /** A blinking typewriter caret: solid while typing, blinking once it rests. */
 function Caret({ typing }) {
@@ -82,8 +181,8 @@ export default function Hero({ onEnter, role }) {
     <Typed
       {...LINES[i]}
       start={step >= i}
-      // the caret follows the typing, and comes to rest after the last line
-      caret={step === i || (i === LINES.length - 1 && step >= LINES.length)}
+      // the caret follows the typing, then moves on to the quotes
+      caret={step === i}
       onDone={step === i ? next : undefined}
       {...props}
     />
@@ -230,7 +329,10 @@ export default function Hero({ onEnter, role }) {
               className:
                 'font-serif text-[min(11vw,3rem)] italic leading-[1.05] tracking-tight text-white md:text-5xl lg:text-6xl',
             })}
-            {typed(1, { className: 'mx-auto mt-5 max-w-md text-base leading-relaxed text-white/75 md:mx-0 md:text-lg' })}
+            <Quotes
+              start={step >= LINES.length}
+              className="mx-auto mt-6 max-w-md font-serif text-xl italic leading-snug text-white/80 md:mx-0 md:text-2xl"
+            />
             {/* The button doesn't wait for all the prose: it rises in once the title is set. */}
             <motion.button
               onClick={getToWork}
