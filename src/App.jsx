@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { MotionConfig, motion } from 'framer-motion'
 import Spark from './components/Spark.jsx'
 import Workspace from './components/Workspace.jsx'
@@ -50,6 +50,45 @@ const INSPIRE = [
   { t: 'boards', l: 'Mood boards' },
 ]
 
+// ── the address bar ──────────────────────────────────────────────────────────
+// Every page gets its own address (#/books/…, #/read/…), pushed onto the
+// browser's history, so Back and Forward move around the site instead of
+// leaving it, and a refresh stays put. Sign-in links arrive as "#access_token…"
+// or "#error…", not "#/", so they're left alone for Supabase.
+
+function toHash(s) {
+  if (!s.entered) return '#/'
+  switch (s.tab) {
+    case 'library':
+      return '#/books' + (s.workId ? `/${s.workId}` + (s.pieceId ? `/${s.pieceId}` : '') : '')
+    case 'poems':
+      return '#/poems' + (s.poem ? `/${s.poem.work_id}/${s.poem.id}` : '')
+    case 'inspire':
+      return `#/inspire/${s.inspire}` + (s.inspire === 'boards' && s.boardId ? `/${s.boardId}` : '')
+    case 'read':
+      return '#/read' + (s.read.pieceId ? `/p/${s.read.pieceId}` : s.read.bookId ? `/b/${s.read.bookId}` : '')
+    default:
+      return `#/${s.tab}`
+  }
+}
+
+function fromHash(hash) {
+  if (!hash.startsWith('#/')) return null
+  const [a, b, c] = hash.slice(2).split('/')
+  const none = { workId: null, pieceId: null, poem: null, inspire: 'prompts', boardId: null, read: {} }
+  if (!a) return { ...none, entered: false, tab: 'read' }
+  const at = { ...none, entered: true }
+  if (a === 'books') return { ...at, tab: 'library', workId: b || null, pieceId: (b && c) || null }
+  if (a === 'poems') return { ...at, tab: 'poems', poem: b && c ? { work_id: b, id: c } : null }
+  if (a === 'inspire') {
+    const sub = INSPIRE.some((x) => x.t === b) ? b : 'prompts'
+    return { ...at, tab: 'inspire', inspire: sub, boardId: (sub === 'boards' && c) || null }
+  }
+  if (a === 'read') return { ...at, tab: 'read', read: b === 'p' && c ? { pieceId: c } : b === 'b' && c ? { bookId: c } : {} }
+  if (['image', 'people', 'account'].includes(a)) return { ...at, tab: a }
+  return null
+}
+
 export default function App() {
   const { session, role, refresh } = useAccess()
   const owner = role === 'owner'
@@ -57,17 +96,68 @@ export default function App() {
   // An email link (a password reset, or one that failed) lands on whatever
   // page was left open — usually the hero. Open the sign-in page instead,
   // where it can be finished or explained.
-  const [entered, setEntered] = useState(Boolean(linkError || recovering))
-  const [tab, setTab] = useState(linkError || recovering ? 'account' : 'read')
-  const [inspire, setInspire] = useState('prompts') // which tool under Inspiration
+  const [start] = useState(() => (linkError || recovering ? null : fromHash(window.location.hash)))
+  const [entered, setEntered] = useState(start ? start.entered : Boolean(linkError || recovering))
+  const [tab, setTab] = useState(start ? start.tab : linkError || recovering ? 'account' : 'read')
+  const [inspire, setInspire] = useState(start?.inspire || 'prompts') // which tool under Inspiration
   const [mood, setMood] = useState('melancholy')
   const [workspace, setWorkspace] = useState(null) // the mood board currently open
-  const [workId, setWorkId] = useState(null) // the book open on the Books tab
-  const [pieceId, setPieceId] = useState(null) // the chapter open in the editor
-  const [poem, setPoem] = useState(null) // { id, work_id } open on the Poems tab
-  const [readPiece, setReadPiece] = useState(null) // a piece to open on Read
+  const [boardId, setBoardId] = useState(start?.boardId || null) // a board to open once it's fetched
+  const [workId, setWorkId] = useState(start?.workId || null) // the book open on the Books tab
+  const [pieceId, setPieceId] = useState(start?.pieceId || null) // the chapter open in the editor
+  const [poem, setPoem] = useState(start?.poem || null) // { id, work_id } open on the Poems tab
+  const [readView, setReadView] = useState(start?.read || {}) // { bookId } or { pieceId } on Read
   const [myPoems, setMyPoems] = useState(null) // for Image
   const [unseen, setUnseen] = useState(0)
+
+  // A board named in the address is fetched, then opened.
+  useEffect(() => {
+    if (!boardId || workspace?.id === boardId) return
+    let alive = true
+    getWorkspace(boardId).then((w) => {
+      if (!alive) return
+      setWorkspace(w || null)
+      setBoardId(null)
+    })
+    return () => {
+      alive = false
+    }
+  }, [boardId, workspace])
+
+  // Keep the address in step with the page. Moves the app makes on its own
+  // (after signing in, or sending a reader away from a writing page) replace
+  // the entry rather than add one, so Back doesn't bounce into them again.
+  const replaceNext = useRef(false)
+  const hash = toHash({ entered, tab, workId, pieceId, poem, inspire, boardId: workspace?.id || boardId, read: readView })
+  useEffect(() => {
+    const current = window.location.hash
+    if (current && !current.startsWith('#/')) return // a sign-in link still being read
+    const replace = replaceNext.current
+    replaceNext.current = false
+    if ((current || '#/') === hash) return
+    const url = hash === '#/' ? window.location.pathname + window.location.search : hash
+    if (replace) window.history.replaceState(null, '', url)
+    else window.history.pushState(null, '', url)
+  }, [hash])
+
+  // Back and Forward: show the page the address names.
+  useEffect(() => {
+    const onPop = () => {
+      const r = fromHash(window.location.hash || '#/')
+      if (!r) return
+      setEntered(r.entered)
+      setTab(r.tab)
+      setWorkId(r.workId)
+      setPieceId(r.pieceId)
+      setPoem(r.poem)
+      setInspire(r.inspire)
+      setReadView(r.read)
+      setBoardId(r.boardId)
+      setWorkspace((w) => (r.boardId && w?.id === r.boardId ? w : null))
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
 
   useEffect(() => {
     if (!recovering) return
@@ -77,7 +167,10 @@ export default function App() {
 
   // Signed in from the sign-in page: the owner to the books, friends to Read.
   useEffect(() => {
-    if (session && tab === 'account' && !recovering && role !== undefined) setTab(owner ? 'library' : 'read')
+    if (session && tab === 'account' && !recovering && role !== undefined) {
+      replaceNext.current = true
+      setTab(owner ? 'library' : 'read')
+    }
     if (session === null) {
       setWorkId(null)
       setPieceId(null)
@@ -87,7 +180,10 @@ export default function App() {
 
   // Anything for writing is the owner's alone; everyone else is sent to Read.
   useEffect(() => {
-    if (role !== undefined && !owner && OWNER_TABS.has(tab)) setTab('read')
+    if (role !== undefined && !owner && OWNER_TABS.has(tab)) {
+      replaceNext.current = true
+      setTab('read')
+    }
   }, [role, owner, tab])
 
   // New comments, counted on the account button.
@@ -143,7 +239,7 @@ export default function App() {
       setPieceId(null)
     }
     if (t === 'poems') setPoem(null)
-    if (t === 'read') setReadPiece(null)
+    if (t === 'read') setReadView({})
     setTab(t)
   }
 
@@ -279,13 +375,13 @@ export default function App() {
                       <People
                         onSeen={() => setUnseen(0)}
                         onOpenPiece={(id) => {
-                          setReadPiece(id)
+                          setReadView({ pieceId: id })
                           setTab('read')
                         }}
                       />
                     )}
 
-                    {t === 'read' && <Read role={role} session={session} refresh={refresh} openPieceId={readPiece} />}
+                    {t === 'read' && <Read role={role} session={session} refresh={refresh} view={readView} onView={setReadView} />}
                   </div>
                 )}
               />

@@ -258,21 +258,21 @@ function Reader({ piece, heading, over, prev, next, onOpen, onBack, backLabel, s
  * The reading room: what's been published, for approved friends (and for the owner,
  * to see it as they do). Everyone else is asked to sign in and request access.
  */
-export default function Read({ role, session, refresh, openPieceId }) {
+export default function Read({ role, session, refresh, view = {}, onView }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
-  const [bookId, setBookId] = useState(null)
-  const [pieceId, setPieceId] = useState(openPieceId || null)
+  // Where the reader is in the reading room lives with the app, so the browser's
+  // back button walks back through it.
+  const bookId = view.bookId || null
+  const pieceId = view.pieceId || null
+  const setBookId = (id) => onView({ bookId: id })
+  const setPieceId = (id) => onView(id ? { pieceId: id } : {})
   const canRead = role === 'owner' || role === 'reader'
 
   useEffect(() => {
     if (!canRead) return
     listPublished().then(setData, (e) => setError(e.message))
   }, [canRead])
-
-  useEffect(() => {
-    if (openPieceId) setPieceId(openPieceId)
-  }, [openPieceId])
 
   if (role === undefined) return <p className="font-serif italic text-muted">One moment…</p>
   if (!canRead) return <Gate role={role} session={session} onAsked={refresh} />
@@ -294,10 +294,7 @@ export default function Read({ role, session, refresh, openPieceId }) {
           prev={chapters[i - 1]}
           next={chapters[i + 1]}
           onOpen={(p) => setPieceId(p.id)}
-          onBack={() => {
-            setPieceId(null)
-            setBookId(book.id)
-          }}
+          onBack={() => setBookId(book.id)}
           backLabel={bookTitle(book)}
           session={session}
           isOwner={role === 'owner'}
@@ -326,7 +323,7 @@ export default function Read({ role, session, refresh, openPieceId }) {
     const chapters = numberContents(book.chapters)
     return (
       <section className="animate-rise">
-        <button onClick={() => setBookId(null)} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-fuchsia">
+        <button onClick={() => onView({})} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-fuchsia">
           <ArrowLeft size={15} /> All reading
         </button>
         <div className="mt-6 grid gap-10 md:grid-cols-[13rem_1fr]">
