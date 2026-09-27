@@ -90,6 +90,11 @@ html, body, #root { height: 100%; }
    breakpoint (640px). One lever instead of touching each component. */
 @media (max-width: 639px) {
   html { font-size: 85%; }
+  /* …but a text field under 16px makes iPhone Safari zoom in when it's
+     tapped. Unlayered, so it wins over the Tailwind size utilities. */
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']),
+  textarea,
+  select { font-size: 16px; }
 }
 
 body {
@@ -214,7 +219,10 @@ textarea.liquid-glass--fuchsia:focus {
   to   { opacity: 1; transform: translateY(0);     filter: blur(0); }
 }
 @media (prefers-reduced-motion: no-preference) {
-  .tab-enter { animation: tabEnter 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  /* `backwards`, not `both`: once it has settled, nothing is left behind. A
+     leftover transform or filter would make every position: fixed overlay
+     inside the page line up with the page instead of the screen. */
+  .tab-enter { animation: tabEnter 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
 }
 
 /* ── Reveal: fade + rise on mount (CSS so it can't stall like rAF can) ── */
@@ -313,3 +321,7 @@ textarea.liquid-glass--fuchsia:focus {
 .book-preview hr { border: 0; margin: 1.8em 0; text-align: center; }
 .book-preview hr::after { content: "*   *   *"; white-space: pre; color: var(--muted); letter-spacing: 0.2em; }
 .book-preview .empty { font-style: italic; color: var(--muted); text-indent: 0; }
+
+/* The editor's formatting toolbar scrolls sideways on a phone: no scrollbar strip under it. */
+.editor-toolbar { scrollbar-width: none; }
+.editor-toolbar::-webkit-scrollbar { display: none; }

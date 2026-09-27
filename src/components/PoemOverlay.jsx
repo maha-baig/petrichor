@@ -370,7 +370,7 @@ export default function PoemOverlay({ imageSrc, standalone = false, myPoems = nu
           key={o.v}
           onClick={() => onChange(o.v)}
           className={
-            'rounded-full border px-3 py-1 text-xs transition-colors ' +
+            'rounded-full border px-3.5 py-2.5 text-xs transition-colors sm:px-3 sm:py-1 ' +
             (value === o.v
               ? 'border-fuchsia bg-fuchsia text-white'
               : 'border-line text-muted hover:text-body')
@@ -453,7 +453,7 @@ export default function PoemOverlay({ imageSrc, standalone = false, myPoems = nu
                 if (chosen) setPoem(chosen.text)
               }}
               aria-label="Choose one of my poems"
-              className="mb-2 w-full rounded-full border border-line bg-card px-4 py-2 text-sm text-body focus:border-fuchsia focus:outline-none"
+              className="mb-2 w-full rounded-full border border-line bg-card px-4 py-2.5 text-base text-body focus:border-fuchsia focus:outline-none sm:py-2 sm:text-sm"
             >
               <option value="">Choose one of my poems…</option>
               {myPoems.map((p) => (
@@ -508,7 +508,7 @@ export default function PoemOverlay({ imageSrc, standalone = false, myPoems = nu
                     onClick={() => setInk(hex)}
                     aria-label={`ink ${hex}`}
                     className={
-                      'h-6 w-6 rounded-full border transition-transform hover:scale-110 ' +
+                      'h-10 w-10 rounded-full border transition-transform hover:scale-110 sm:h-6 sm:w-6 ' +
                       (ink.toLowerCase() === hex ? 'border-fuchsia ring-1 ring-fuchsia' : 'border-line')
                     }
                     style={{ background: hex }}
@@ -519,7 +519,7 @@ export default function PoemOverlay({ imageSrc, standalone = false, myPoems = nu
                   value={ink}
                   onChange={(e) => setInk(e.target.value)}
                   aria-label="custom ink colour"
-                  className="h-6 w-6 cursor-pointer rounded-full border border-line bg-transparent p-0"
+                  className="h-10 w-10 cursor-pointer rounded-full border border-line bg-transparent p-0 sm:h-6 sm:w-6"
                 />
               </div>
             </Row>
@@ -547,7 +547,9 @@ export default function PoemOverlay({ imageSrc, standalone = false, myPoems = nu
           </Group>
         </div>
 
-        <div>
+        {/* On a phone the controls run long; the picture comes first so it's in
+            view while the poem is chosen, not a long scroll below it. */}
+        <div className={src ? 'order-first lg:order-none' : ''}>
           <canvas
             ref={canvasRef}
             tabIndex={0}

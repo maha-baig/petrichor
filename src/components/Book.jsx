@@ -71,18 +71,18 @@ function ExportMenu({ workId }) {
     }
   }
 
-  const item = 'block w-full rounded-sm px-3 py-2 text-left text-sm text-body transition-colors hover:bg-body/5 hover:text-fuchsia'
+  const item = 'block min-h-[40px] w-full rounded-sm px-3 py-2 text-left sm:min-h-0 text-sm text-body transition-colors hover:bg-body/5 hover:text-fuchsia'
   return (
-    <div className="relative">
+    <div className="sm:relative">
       <button
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="inline-flex items-center gap-2 rounded-full border border-line px-4 py-2 font-grotesk text-sm font-bold text-body transition-colors hover:border-fuchsia hover:text-fuchsia"
+        className="inline-flex min-h-[40px] items-center gap-2 rounded-full border border-line px-4 py-2 font-grotesk text-sm font-bold text-body transition-colors hover:border-fuchsia hover:text-fuchsia"
       >
         <Download size={15} /> Export
       </button>
       {open && (
-        <div className="absolute left-0 top-full z-30 mt-2 w-64 rounded-sm border border-line bg-paper p-1.5 shadow-xl">
+        <div className="absolute inset-x-0 top-full z-30 mt-2 rounded-sm sm:right-auto sm:w-64 border border-line bg-paper p-1.5 shadow-xl">
           <button onClick={() => run('epub')} className={item}>
             {busy === 'epub' ? 'Binding…' : 'E-book (.epub)'}
           </button>
@@ -94,7 +94,7 @@ function ExportMenu({ workId }) {
               value={trim}
               onChange={(e) => setTrim(e.target.value)}
               aria-label="Trim size"
-              className="shrink-0 rounded-sm border border-line bg-card px-1.5 py-1 text-xs text-muted focus:border-fuchsia focus:outline-none"
+              className="min-h-[36px] shrink-0 rounded-sm border border-line bg-card px-1.5 py-1 text-xs text-muted focus:border-fuchsia focus:outline-none sm:min-h-0"
             >
               {Object.entries(TRIMS).map(([k, t]) => (
                 <option key={k} value={k}>
@@ -150,7 +150,7 @@ export default function Book({ workId, onBack, onWrite }) {
   if (error && !work)
     return (
       <section>
-        <button onClick={onBack} className="text-sm text-muted hover:text-fuchsia">
+        <button onClick={onBack} className="-my-2 inline-block min-h-[40px] py-2 text-sm text-muted hover:text-fuchsia sm:min-h-0">
           ← all books
         </button>
         <p className="mt-6 max-w-2xl text-sm text-fuchsia">{error}</p>
@@ -265,34 +265,36 @@ export default function Book({ workId, onBack, onWrite }) {
   return (
     <section className="animate-rise">
       {notionOpen && <NotionPicker verb="Add as chapters" onPick={fromNotion} onClose={() => setNotionOpen(false)} />}
-      <button onClick={onBack} className="text-sm text-muted hover:text-fuchsia">
+      <button onClick={onBack} className="-my-2 inline-block min-h-[40px] py-2 text-sm text-muted hover:text-fuchsia sm:min-h-0">
         ← all books
       </button>
 
       {/* ── The book itself ─────────────────────────────────────────────── */}
       <div className="mt-6 grid gap-10 md:grid-cols-[15rem_1fr]">
-        <div className="mx-auto w-48 md:mx-0 md:w-full">
-          <BookCover work={work} size="lg" />
-          <div className="mt-4 flex flex-wrap items-center gap-2">
+        <div>
+          <div className="mx-auto w-48 md:mx-0 md:w-full">
+            <BookCover work={work} size="lg" />
+          </div>
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2 md:justify-start">
             <input ref={fileInput} type="file" accept="image/*" onChange={onCoverFile} className="hidden" />
             <button
               onClick={() => fileInput.current?.click()}
               disabled={busy === 'cover'}
-              className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1 text-xs text-muted transition-colors hover:border-fuchsia hover:text-fuchsia disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-full border border-line min-h-[40px] px-3 py-1 text-xs text-muted transition-colors hover:border-fuchsia hover:text-fuchsia disabled:opacity-60 md:min-h-0"
             >
               <ImagePlus size={13} /> {busy === 'cover' ? 'Uploading…' : work.cover_path ? 'Change cover' : 'Upload cover'}
             </button>
             {work.cover_path && (
               <button
                 onClick={async () => setWork(await removeCover(work.id, work.cover_path))}
-                className="text-xs text-muted hover:text-fuchsia"
+                className="min-h-[40px] px-1 text-xs text-muted hover:text-fuchsia md:min-h-0"
               >
                 remove
               </button>
             )}
           </div>
           {!work.cover_path && (
-            <div className="mt-3 flex flex-wrap gap-1.5" role="radiogroup" aria-label="Cover colour">
+            <div className="mt-3 flex flex-wrap justify-center gap-2 md:justify-start md:gap-1.5" role="radiogroup" aria-label="Cover colour">
               {COVER_COLORS.map((c) => (
                 <button
                   key={c}
@@ -301,7 +303,7 @@ export default function Book({ workId, onBack, onWrite }) {
                   aria-label={`Cover colour ${c}`}
                   onClick={() => change({ cover_color: c })}
                   className={
-                    'h-5 w-5 rounded-full border transition-transform hover:scale-110 ' +
+                    'h-8 w-8 rounded-full border transition-transform hover:scale-110 md:h-5 md:w-5 ' +
                     (work.cover_color === c ? 'border-fuchsia ring-2 ring-fuchsia/40' : 'border-line')
                   }
                   style={{ background: c }}
@@ -381,11 +383,11 @@ export default function Book({ workId, onBack, onWrite }) {
             </div>
           )}
 
-          <div className="mt-6 flex flex-wrap items-center gap-3">
+          <div className="relative mt-6 flex flex-wrap items-center gap-3">
             {writable.length > 0 && (
               <button
                 onClick={() => onWrite((started && lastTouched) || writable[0])}
-                className="inline-flex items-center gap-2 rounded-full bg-fuchsia px-5 py-2 font-grotesk text-sm font-bold text-white transition-transform hover:scale-[1.02]"
+                className="inline-flex min-h-[40px] items-center gap-2 rounded-full bg-fuchsia px-5 py-2 font-grotesk text-sm font-bold text-white transition-transform hover:scale-[1.02]"
               >
                 <BookOpen size={15} /> {started ? `Continue: ${pieceLabel(lastTouched)}` : 'Start writing'}
               </button>
@@ -407,7 +409,7 @@ export default function Book({ workId, onBack, onWrite }) {
               onClick={() => docInput.current?.click()}
               disabled={!!busy || !!importing}
               title="Add chapters from a Word, Markdown, text or HTML file. Headings become chapters."
-              className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs font-bold text-body transition-colors hover:border-fuchsia hover:text-fuchsia disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-full border border-line min-h-[40px] px-3 py-1.5 text-xs font-bold text-body transition-colors hover:border-fuchsia hover:text-fuchsia disabled:opacity-60 sm:min-h-0"
             >
               <FileUp size={13} /> Import
             </button>
@@ -415,7 +417,7 @@ export default function Book({ workId, onBack, onWrite }) {
               onClick={() => setNotionOpen(true)}
               disabled={!!busy || !!importing}
               title="Add chapters from a Notion page. Its sub-pages become chapters."
-              className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs font-bold text-body transition-colors hover:border-fuchsia hover:text-fuchsia disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-full border border-line min-h-[40px] px-3 py-1.5 text-xs font-bold text-body transition-colors hover:border-fuchsia hover:text-fuchsia disabled:opacity-60 sm:min-h-0"
             >
               From Notion
             </button>
@@ -427,7 +429,7 @@ export default function Book({ workId, onBack, onWrite }) {
                 key={k}
                 onClick={() => add(k)}
                 disabled={!!busy}
-                className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs font-bold text-body transition-colors hover:border-fuchsia hover:text-fuchsia disabled:opacity-60"
+                className="inline-flex items-center gap-1.5 rounded-full border border-line min-h-[40px] px-3 py-1.5 text-xs font-bold text-body transition-colors hover:border-fuchsia hover:text-fuchsia disabled:opacity-60 sm:min-h-0"
               >
                 <Plus size={13} /> {l}
               </button>
@@ -456,33 +458,33 @@ export default function Book({ workId, onBack, onWrite }) {
         <ol className="mt-2">
           {contents.map((p, i) => {
             const isPart = p.kind === 'part'
-            const pad = p.depth === 2 ? 'pl-12' : p.depth === 1 ? 'pl-6' : ''
+            const pad = p.depth === 2 ? 'pl-8 sm:pl-12' : p.depth === 1 ? 'pl-4 sm:pl-6' : ''
             return (
               <li
                 key={p.id}
                 className={
-                  'group flex items-center gap-3 border-b border-line/50 ' +
+                  'group flex flex-wrap items-center gap-x-3 border-b border-line/50 sm:flex-nowrap ' +
                   (isPart ? 'mt-6 pb-2 pt-3' : 'py-2.5') +
                   ' ' +
                   pad
                 }
               >
-                <button onClick={() => onWrite(p)} className="flex min-w-0 flex-1 items-baseline gap-3 text-left">
+                <button onClick={() => onWrite(p)} className="flex min-w-0 basis-full items-baseline gap-2 py-1 text-left sm:flex-1 sm:basis-auto sm:gap-3 sm:py-0">
                   {isPart ? (
                     <>
-                      <span className="font-grotesk text-[0.7rem] font-bold uppercase tracking-[0.22em] text-muted">Part {p.number}</span>
-                      <span className="truncate font-serif text-xl italic text-ink group-hover:text-fuchsia">
+                      <span className="shrink-0 whitespace-nowrap font-grotesk text-[0.7rem] font-bold uppercase tracking-[0.22em] text-muted">Part {p.number}</span>
+                      <span className="min-w-0 break-words font-serif sm:truncate text-xl italic text-ink group-hover:text-fuchsia">
                         {p.title?.trim() || 'Untitled part'}
                       </span>
                     </>
                   ) : (
                     <>
-                      <span className={'w-10 shrink-0 font-grotesk text-xs tabular-nums text-muted ' + (p.kind === 'section' ? 'opacity-70' : '')}>
+                      <span className={'w-7 shrink-0 font-grotesk sm:w-10 text-xs tabular-nums text-muted ' + (p.kind === 'section' ? 'opacity-70' : '')}>
                         {p.number}
                       </span>
                       <span
                         className={
-                          'truncate font-serif italic group-hover:text-fuchsia ' +
+                          'min-w-0 break-words font-serif italic group-hover:text-fuchsia sm:truncate ' +
                           (p.kind === 'section' ? 'text-base text-body' : 'text-lg text-ink')
                         }
                       >
@@ -493,21 +495,23 @@ export default function Book({ workId, onBack, onWrite }) {
                 </button>
 
                 {!isPart && (
-                  <span className="hidden shrink-0 items-center gap-2 text-xs text-muted sm:flex">
+                  <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 pl-9 text-xs text-muted sm:flex-none sm:shrink-0 sm:flex-nowrap sm:pl-0">
                     {p.published_at && <span className="rounded-full bg-fuchsia/10 px-2 py-0.5 text-fuchsia">Published</span>}
-                    <span className={'h-1.5 w-1.5 rounded-full ' + STATUS_DOT[p.status]} title={p.status} />
-                    {fmt(p.words)} words
+                    <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                      <span className={'h-1.5 w-1.5 rounded-full ' + STATUS_DOT[p.status]} title={p.status} />
+                      {fmt(p.words)} words
+                    </span>
                   </span>
                 )}
 
-                <span className="flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
+                <span className="ml-auto flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity sm:ml-0 sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
                   {confirming === p.id ? (
                     <span className="flex items-center gap-2 text-xs">
                       <span className="text-muted">delete{p.words ? ` ${fmt(p.words)} words` : ''}?</span>
-                      <button onClick={() => remove(p)} className="rounded-full bg-fuchsia px-2.5 py-0.5 font-bold text-white">
+                      <button onClick={() => remove(p)} className="min-h-[36px] rounded-full bg-fuchsia px-3 py-0.5 font-bold text-white sm:min-h-0 sm:px-2.5">
                         yes
                       </button>
-                      <button onClick={() => setConfirming(null)} className="text-muted underline">
+                      <button onClick={() => setConfirming(null)} className="min-h-[36px] px-2 text-muted underline sm:min-h-0 sm:px-0">
                         no
                       </button>
                     </span>
@@ -516,29 +520,29 @@ export default function Book({ workId, onBack, onWrite }) {
                       {p.kind === 'chapter' && (
                         <button
                           onClick={() => addSection(i)}
-                          className="rounded-full px-2 py-1 text-xs text-muted hover:text-fuchsia"
+                          className="min-h-[40px] rounded-full px-2 py-1 text-xs text-muted hover:text-fuchsia sm:min-h-0"
                           title="Add a section to this chapter"
                         >
                           + section
                         </button>
                       )}
                       {isPart && (
-                        <button onClick={() => add('chapter', i + 1)} className="rounded-full px-2 py-1 text-xs text-muted hover:text-fuchsia">
+                        <button onClick={() => add('chapter', i + 1)} className="min-h-[40px] rounded-full px-2 py-1 text-xs text-muted hover:text-fuchsia sm:min-h-0">
                           + chapter
                         </button>
                       )}
-                      <button onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move up" className="rounded-full p-1.5 text-muted hover:text-fuchsia disabled:opacity-30">
+                      <button onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move up" className="grid min-h-[40px] min-w-[36px] place-items-center rounded-full p-1.5 text-muted hover:text-fuchsia sm:min-h-0 sm:min-w-0 disabled:opacity-30">
                         <ArrowUp size={14} />
                       </button>
                       <button
                         onClick={() => move(i, 1)}
                         disabled={i === contents.length - 1}
                         aria-label="Move down"
-                        className="rounded-full p-1.5 text-muted hover:text-fuchsia disabled:opacity-30"
+                        className="grid min-h-[40px] min-w-[36px] place-items-center rounded-full p-1.5 text-muted hover:text-fuchsia sm:min-h-0 sm:min-w-0 disabled:opacity-30"
                       >
                         <ArrowDown size={14} />
                       </button>
-                      <button onClick={() => setConfirming(p.id)} aria-label={`Delete ${pieceLabel(p)}`} className="rounded-full p-1.5 text-muted hover:text-fuchsia">
+                      <button onClick={() => setConfirming(p.id)} aria-label={`Delete ${pieceLabel(p)}`} className="grid min-h-[40px] min-w-[36px] place-items-center rounded-full p-1.5 text-muted hover:text-fuchsia sm:min-h-0 sm:min-w-0">
                         <Trash2 size={14} />
                       </button>
                     </>

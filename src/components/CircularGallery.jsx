@@ -446,18 +446,25 @@ class App {
     this.start = e.touches ? e.touches[0].clientX : e.clientX
     this.startY = e.touches ? e.touches[0].clientY : e.clientY
     this.moved = 0
+    this.movedY = 0
   }
   onTouchMove(e) {
     if (!this.isDown) return
     const x = e.touches ? e.touches[0].clientX : e.clientX
+    const y = e.touches ? e.touches[0].clientY : e.clientY
     this.moved = Math.abs(this.start - x)
+    this.movedY = Math.abs(this.startY - y)
+    // On a phone a finger crossing the ribbon is usually scrolling the page;
+    // a mostly-vertical swipe leaves the ribbon where it is.
+    if (e.touches && this.movedY > this.moved) return
     const distance = (this.start - x) * (this.scrollSpeed * 0.025)
     this.scroll.target = this.scroll.position + distance
     this.clamp()
   }
   onTouchUp(e) {
     const wasDown = this.isDown
-    const wasDrag = this.moved > 8
+    // A swipe that scrolled the page is not a tap on a card either.
+    const wasDrag = this.moved > 8 || this.movedY > 8
     this.isDown = false
     // Only a drag needs settling; a click shouldn't shift what it just opened.
     if (wasDrag) this.onCheck()

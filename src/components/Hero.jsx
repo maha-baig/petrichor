@@ -18,6 +18,11 @@ const TAIL_S = 0.5 // fade out this long before the end, then loop with a fade i
  * once per pass, with no names attached. When the last has passed, a new pass
  * begins, in a fresh order, from the top. Reduced motion: the lines stand still.
  */
+// Fade the lines in below the navbar (never less than its height, so on short
+// phone screens they don't cross the logo and menu) and out above the button.
+const DRIFT_MASK =
+  'linear-gradient(to bottom, transparent 0%, transparent max(9%, 5.5rem), #000 max(24%, 9rem), #000 66%, transparent 84%)'
+
 function Drift({ poems }) {
   const reduce = useReducedMotion()
   const box = useRef(null)
@@ -65,10 +70,7 @@ function Drift({ poems }) {
       ref={box}
       aria-hidden="true"
       className="pointer-events-none absolute inset-y-0 left-0 w-full overflow-hidden md:w-1/2"
-      style={{
-        maskImage: 'linear-gradient(to bottom, transparent 0%, transparent 9%, #000 24%, #000 66%, transparent 84%)',
-        WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, transparent 9%, #000 24%, #000 66%, transparent 84%)',
-      }}
+      style={{ maskImage: DRIFT_MASK, WebkitMaskImage: DRIFT_MASK }}
     >
       {moving && (
         <style>{`@keyframes hero-drift-${pass} { from { transform: translateY(-100%) } to { transform: translateY(${size.box}px) } }`}</style>
@@ -87,7 +89,7 @@ function Drift({ poems }) {
         {lines.map((poem, i) => (
           <div key={i} className="flex flex-col gap-5 pb-10">
             {poem.map((l) => (
-              <p key={l} className="font-serif text-2xl italic leading-snug text-white/85 md:text-3xl">
+              <p key={l} className="font-serif text-2xl italic leading-snug text-white/85 [text-shadow:0_1px_14px_rgba(0,0,0,0.9)] md:text-3xl">
                 {l}
               </p>
             ))}
@@ -242,7 +244,10 @@ export default function Hero({ onEnter, role }) {
         </div>
       )}
 
-      <div className="relative z-10 flex min-h-screen flex-col">
+      {/* On phones the flowers sit in the lines' path; dropping this layer's
+          z-index there lets the lines pass over the clip instead of being cut
+          off behind it (the nav and button keep their own z above them). */}
+      <div className="relative z-10 flex min-h-screen flex-col max-md:z-auto">
         <TopNav
           tone="video"
           active="home"

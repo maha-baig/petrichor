@@ -53,14 +53,14 @@ function Gate({ role, session, onAsked }) {
 
   if (role === 'pending' || role === 'blocked')
     return (
-      <div className="mx-auto mt-16 max-w-md rounded-sm border border-dashed border-line p-8 text-center">
+      <div className="mx-auto mt-16 max-w-md rounded-sm border border-dashed border-line p-6 text-center sm:p-8">
         <p className="font-serif text-2xl italic text-ink">
           {role === 'pending' ? 'Your request is waiting.' : 'Reading isn’t open to this account.'}
         </p>
         <p className="mt-2 text-sm text-muted">
           {role === 'pending' ? 'You’ll be able to read here as soon as it’s approved. Nothing else to do.' : 'If you think that’s a mistake, get in touch directly.'}
         </p>
-        <button onClick={signOut} className="mt-5 text-xs text-muted underline hover:text-fuchsia">
+        <button onClick={signOut} className="mt-2 break-all py-3 text-xs text-muted underline hover:text-fuchsia">
           sign out ({session?.user?.email})
         </button>
       </div>
@@ -111,7 +111,7 @@ function Gate({ role, session, onAsked }) {
         {error && <p className="text-center text-sm text-fuchsia">{error}</p>}
         <p className="text-center text-xs text-muted">
           Signed in as {session?.user?.email} ·{' '}
-          <button type="button" onClick={signOut} className="underline hover:text-fuchsia">
+          <button type="button" onClick={signOut} className="-my-3 inline-block px-1 py-3 underline hover:text-fuchsia">
             sign out
           </button>
         </p>
@@ -175,7 +175,7 @@ function Comments({ piece, session, isOwner }) {
                     setComments((cs) => cs.filter((x) => x.id !== c.id))
                   }}
                   aria-label="Delete comment"
-                  className="ml-2 align-middle text-muted opacity-0 transition-opacity hover:text-fuchsia group-hover:opacity-100 focus:opacity-100"
+                  className="-my-3 ml-0.5 p-3 align-middle text-muted opacity-0 transition-opacity hover:text-fuchsia group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100"
                 >
                   <Trash2 size={13} />
                 </button>
@@ -193,7 +193,7 @@ function Comments({ piece, session, isOwner }) {
           placeholder="Your name"
           aria-label="Your name"
           maxLength={60}
-          className="w-full max-w-xs rounded-full border border-line bg-card px-4 py-2 text-sm text-body placeholder:text-muted/60 focus:border-fuchsia focus:outline-none"
+          className="w-full max-w-xs rounded-full border border-line bg-card px-4 py-3 text-sm text-body placeholder:text-muted/60 focus:border-fuchsia focus:outline-none sm:py-2"
         />
         <textarea
           value={body}
@@ -205,7 +205,7 @@ function Comments({ piece, session, isOwner }) {
           className="w-full rounded-sm border border-line bg-card px-4 py-3 font-serif text-body placeholder:italic placeholder:text-muted/60 focus:border-fuchsia focus:outline-none"
         />
         <div>
-          <button disabled={busy} className="rounded-full bg-fuchsia px-5 py-2 font-grotesk text-sm font-bold text-white disabled:opacity-60">
+          <button disabled={busy} className="rounded-full bg-fuchsia px-5 py-3 font-grotesk text-sm font-bold text-white disabled:opacity-60 sm:py-2">
             {busy ? 'Posting…' : 'Post comment'}
           </button>
         </div>
@@ -222,7 +222,7 @@ function Reader({ piece, heading, over, prev, next, onOpen, onBack, backLabel, s
   useEffect(() => window.scrollTo({ top: 0 }), [piece.id])
   return (
     <article className="animate-rise">
-      <button onClick={onBack} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-fuchsia">
+      <button onClick={onBack} className="-my-3 inline-flex items-center gap-1.5 py-3 text-sm text-muted hover:text-fuchsia">
         <ArrowLeft size={15} /> {backLabel}
       </button>
       <div className="mx-auto mt-8 max-w-[40rem] rounded-[2px] bg-card px-6 py-12 sm:px-14 sm:py-16">
@@ -234,16 +234,16 @@ function Reader({ piece, heading, over, prev, next, onOpen, onBack, backLabel, s
         <div className={'book-preview ' + (verse ? 'is-verse' : 'is-prose')} dangerouslySetInnerHTML={{ __html: piece.body || '' }} />
       </div>
       {(prev || next) && (
-        <nav className="mx-auto mt-6 flex max-w-[40rem] justify-between gap-4 text-sm">
+        <nav className="mx-auto mt-3 flex max-w-[40rem] justify-between gap-4 text-sm">
           {prev ? (
-            <button onClick={() => onOpen(prev)} className="inline-flex min-w-0 items-center gap-1 text-muted hover:text-fuchsia">
+            <button onClick={() => onOpen(prev)} className="inline-flex min-w-0 items-center gap-1 py-3 text-muted hover:text-fuchsia">
               <ChevronLeft size={16} className="shrink-0" /> <span className="truncate font-serif italic">{prev.label}</span>
             </button>
           ) : (
             <span />
           )}
           {next && (
-            <button onClick={() => onOpen(next)} className="inline-flex min-w-0 items-center gap-1 text-muted hover:text-fuchsia">
+            <button onClick={() => onOpen(next)} className="inline-flex min-w-0 items-center gap-1 py-3 text-muted hover:text-fuchsia">
               <span className="truncate font-serif italic">{next.label}</span> <ChevronRight size={16} className="shrink-0" />
             </button>
           )}
@@ -323,7 +323,7 @@ export default function Read({ role, session, refresh, view = {}, onView }) {
     const chapters = numberContents(book.chapters)
     return (
       <section className="animate-rise">
-        <button onClick={() => onView({})} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-fuchsia">
+        <button onClick={() => onView({})} className="-my-3 inline-flex items-center gap-1.5 py-3 text-sm text-muted hover:text-fuchsia">
           <ArrowLeft size={15} /> All reading
         </button>
         <div className="mt-6 grid gap-10 md:grid-cols-[13rem_1fr]">
@@ -331,7 +331,7 @@ export default function Read({ role, session, refresh, view = {}, onView }) {
             <BookCover work={book} size="lg" />
           </div>
           <div>
-            <h1 className="font-serif text-4xl italic leading-tight text-ink">{bookTitle(book)}</h1>
+            <h1 className="break-words font-serif text-3xl italic leading-tight text-ink sm:text-4xl">{bookTitle(book)}</h1>
             {book.subtitle && <p className="mt-1 font-serif text-lg italic text-muted">{book.subtitle}</p>}
             {book.author && <p className="mt-2 text-sm text-muted">by {book.author}</p>}
             {book.description && <p className="mt-5 max-w-xl whitespace-pre-wrap font-serif leading-relaxed text-body">{book.description}</p>}

@@ -73,7 +73,7 @@ export default function ContentsAssistant({ workId, onChanged }) {
         <button
           type="submit"
           disabled={phase !== 'idle' || !instruction.trim()}
-          className="shrink-0 rounded-full bg-fuchsia px-4 py-2 font-grotesk text-sm font-bold text-white disabled:opacity-50"
+          className="min-h-[40px] shrink-0 rounded-full bg-fuchsia px-4 py-2 font-grotesk text-sm font-bold text-white disabled:opacity-50"
         >
           {phase === 'thinking' ? 'Thinking…' : 'Show me'}
         </button>
@@ -86,7 +86,7 @@ export default function ContentsAssistant({ workId, onChanged }) {
           {proposal.note && <p className="font-serif italic text-body">{proposal.note}</p>}
 
           {!nothing && (
-            <ul className="mt-3 flex flex-col gap-1 text-sm">
+            <ul className="mt-3 flex flex-col gap-1 break-words text-sm">
               {[...proposal.plan.renames]
                 .filter(([id]) => !proposal.plan.deletes.has(id))
                 .map(([id, title]) => (
@@ -131,7 +131,7 @@ export default function ContentsAssistant({ workId, onChanged }) {
               <button
                 onClick={apply}
                 disabled={phase === 'applying'}
-                className="rounded-full bg-fuchsia px-4 py-1.5 font-grotesk text-xs font-bold text-white disabled:opacity-60"
+                className="rounded-full bg-fuchsia min-h-[40px] px-4 py-1.5 font-grotesk text-xs font-bold text-white disabled:opacity-60 sm:min-h-0"
               >
                 {phase === 'applying' ? 'Applying…' : proposal.plan.deletes.size ? 'Apply, including deletions' : 'Apply'}
               </button>
@@ -142,7 +142,7 @@ export default function ContentsAssistant({ workId, onChanged }) {
                 setPhase('idle')
               }}
               disabled={phase === 'applying'}
-              className="rounded-full px-3 py-1.5 text-xs text-muted hover:text-body"
+              className="rounded-full min-h-[40px] px-3 py-1.5 text-xs text-muted hover:text-body sm:min-h-0"
             >
               {nothing ? 'OK' : 'Cancel'}
             </button>

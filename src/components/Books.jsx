@@ -22,7 +22,7 @@ export function ShelfSwitch({ active, onSwitch }) {
           aria-selected={active === t}
           onClick={() => active !== t && onSwitch(t)}
           className={
-            'rounded-full px-4 py-1 font-grotesk font-medium transition-colors ' +
+            'min-h-[40px] rounded-full px-4 py-1 font-grotesk font-medium transition-colors sm:min-h-0 ' +
             (active === t ? 'bg-fuchsia text-white' : 'text-muted hover:text-body')
           }
         >
@@ -190,14 +190,14 @@ export default function Books({ onOpen, onPoems }) {
               onClick={() => docInput.current?.click()}
               disabled={!!backup}
               title="Word (.docx), Markdown, plain text or HTML. Headings become chapters."
-              className="inline-flex items-center gap-1.5 rounded-full border border-line px-4 py-2 text-sm text-body transition-colors hover:border-fuchsia hover:text-fuchsia disabled:opacity-50"
+              className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full border border-line px-4 py-2 text-sm text-body transition-colors hover:border-fuchsia hover:text-fuchsia disabled:opacity-50 sm:min-h-0"
             >
               <FileUp size={15} /> Import document
             </button>
             <button
               onClick={() => setNotionOpen(true)}
               disabled={!!backup}
-              className="inline-flex items-center gap-1.5 rounded-full border border-line px-4 py-2 text-sm text-body transition-colors hover:border-fuchsia hover:text-fuchsia disabled:opacity-50"
+              className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full border border-line px-4 py-2 text-sm text-body transition-colors hover:border-fuchsia hover:text-fuchsia disabled:opacity-50 sm:min-h-0"
             >
               <span aria-hidden className="grid h-4 w-4 place-items-center rounded-[3px] border border-current font-serif text-[0.6rem] font-bold leading-none">N</span>
               Import from Notion
@@ -205,7 +205,7 @@ export default function Books({ onOpen, onPoems }) {
             <button
               onClick={backUp}
               disabled={!!backup || !works.length}
-              className="inline-flex items-center gap-1.5 rounded-full border border-line px-4 py-2 text-sm text-body transition-colors hover:border-fuchsia hover:text-fuchsia disabled:opacity-50"
+              className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full border border-line px-4 py-2 text-sm text-body transition-colors hover:border-fuchsia hover:text-fuchsia disabled:opacity-50 sm:min-h-0"
             >
               <DownloadCloud size={15} /> Back up all books
             </button>
@@ -223,7 +223,7 @@ export default function Books({ onOpen, onPoems }) {
             <button
               onClick={() => fileInput.current?.click()}
               disabled={!!backup}
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm text-muted transition-colors hover:text-fuchsia disabled:opacity-50"
+              className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full px-3 py-2 text-sm text-muted sm:min-h-0 transition-colors hover:text-fuchsia disabled:opacity-50"
             >
               <Upload size={15} /> Restore from backup
             </button>
@@ -246,7 +246,7 @@ export default function Books({ onOpen, onPoems }) {
               ? 'You haven’t backed up your books yet. Keep a copy of your own, off this computer.'
               : `It’s been ${age} days since your last backup.`}
           </span>
-          <button onClick={backUp} className="rounded-full bg-fuchsia px-4 py-1.5 font-grotesk text-xs font-bold text-white">
+          <button onClick={backUp} className="rounded-full bg-fuchsia min-h-[40px] px-4 py-1.5 font-grotesk text-xs font-bold text-white sm:min-h-0">
             Back up now
           </button>
         </div>
@@ -259,10 +259,10 @@ export default function Books({ onOpen, onPoems }) {
             copies. Nothing already on your shelf is changed or removed.
           </p>
           <div className="mt-3 flex gap-2">
-            <button onClick={restore} className="rounded-full bg-fuchsia px-4 py-1.5 font-grotesk text-xs font-bold text-white">
+            <button onClick={restore} className="rounded-full bg-fuchsia min-h-[40px] px-4 py-1.5 font-grotesk text-xs font-bold text-white sm:min-h-0">
               Restore
             </button>
-            <button onClick={() => setRestoreFile(null)} className="rounded-full px-3 py-1.5 text-xs text-muted hover:text-body">
+            <button onClick={() => setRestoreFile(null)} className="rounded-full min-h-[40px] px-3 py-1.5 text-xs text-muted hover:text-body sm:min-h-0">
               Cancel
             </button>
           </div>
@@ -288,7 +288,7 @@ export default function Books({ onOpen, onPoems }) {
                   key={g}
                   onClick={() => setGenre(g)}
                   className={
-                    'rounded-full border px-3 py-1 transition-colors ' +
+                    'min-h-[40px] rounded-full border px-3 py-1 transition-colors sm:min-h-0 ' +
                     (genre === g ? 'border-fuchsia bg-fuchsia/10 text-fuchsia' : 'border-line text-muted hover:text-body')
                   }
                 >

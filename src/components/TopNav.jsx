@@ -37,7 +37,7 @@ function Account({ onVideo, active, onNavigate, role, unseen = 0 }) {
       <button
         onClick={() => onNavigate('account')}
         className={
-          'shrink-0 rounded-full px-4 py-1.5 font-grotesk text-sm font-bold transition-colors ' +
+          'relative shrink-0 rounded-full px-4 py-1.5 font-grotesk text-sm font-bold transition-colors before:absolute before:-inset-y-1.5 before:inset-x-0 before:content-[\'\'] ' +
           (active === 'account'
             ? 'bg-fuchsia text-white'
             : onVideo
@@ -56,7 +56,7 @@ function Account({ onVideo, active, onNavigate, role, unseen = 0 }) {
         onClick={() => setOpen((v) => !v)}
         aria-label={`Account: ${email}`}
         aria-expanded={open}
-        className="relative grid h-8 w-8 place-items-center rounded-full bg-fuchsia font-grotesk text-sm font-bold uppercase text-white"
+        className="relative grid h-8 w-8 place-items-center rounded-full bg-fuchsia font-grotesk text-sm font-bold uppercase text-white before:absolute before:-inset-1.5 before:content-['']"
       >
         {email[0] || '·'}
         {unseen > 0 && (
@@ -66,7 +66,7 @@ function Account({ onVideo, active, onNavigate, role, unseen = 0 }) {
         )}
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-60 rounded-sm border border-line bg-paper p-1.5 shadow-xl">
+        <div className="absolute right-0 top-full z-50 mt-2 w-60 max-w-[calc(100vw-2rem)] rounded-sm border border-line bg-paper p-1.5 shadow-xl">
           <p className="truncate px-3 py-2 text-xs text-muted">{email}</p>
           {role === 'owner' ? (
             <button
@@ -74,7 +74,7 @@ function Account({ onVideo, active, onNavigate, role, unseen = 0 }) {
                 setOpen(false)
                 onNavigate('people')
               }}
-              className="flex w-full items-center justify-between rounded-sm px-3 py-2 text-left text-sm text-body hover:bg-body/5 hover:text-fuchsia"
+              className="flex w-full items-center justify-between rounded-sm px-3 py-3 text-left text-sm text-body hover:bg-body/5 hover:text-fuchsia sm:py-2"
             >
               Readers &amp; comments
               {unseen > 0 && <span className="rounded-full bg-fuchsia/10 px-2 text-xs text-fuchsia">{unseen} new</span>}
@@ -85,7 +85,7 @@ function Account({ onVideo, active, onNavigate, role, unseen = 0 }) {
                 setOpen(false)
                 onNavigate('read')
               }}
-              className="block w-full rounded-sm px-3 py-2 text-left text-sm text-body hover:bg-body/5 hover:text-fuchsia"
+              className="block w-full rounded-sm px-3 py-3 text-left text-sm text-body hover:bg-body/5 hover:text-fuchsia sm:py-2"
             >
               Read
             </button>
@@ -95,7 +95,7 @@ function Account({ onVideo, active, onNavigate, role, unseen = 0 }) {
               setOpen(false)
               await signOut()
             }}
-            className="block w-full rounded-sm px-3 py-2 text-left text-sm text-body hover:bg-body/5 hover:text-fuchsia"
+            className="block w-full rounded-sm px-3 py-3 text-left text-sm text-body hover:bg-body/5 hover:text-fuchsia sm:py-2"
           >
             Sign out
           </button>
@@ -133,7 +133,7 @@ export default function TopNav({ tone = 'app', active, onNavigate, wide = false,
           'mx-auto flex items-center justify-between gap-4 ' + (wide ? 'max-w-[88rem] px-6 lg:px-10' : 'max-w-5xl')
         }
       >
-        <button onClick={() => go('home')} className="flex shrink-0 items-center gap-2">
+        <button onClick={() => go('home')} className="-my-2 flex shrink-0 items-center gap-2 py-2">
           <Feather size={24} className="text-fuchsia" />
           <span className={'font-grotesk text-lg font-semibold ' + brand}>Petrichor</span>
         </button>
@@ -149,13 +149,13 @@ export default function TopNav({ tone = 'app', active, onNavigate, wide = false,
         </div>
 
         {/* Phones: the account button, then a hamburger for the links. */}
-        <div className="flex items-center gap-3 sm:hidden">
+        <div className="flex items-center gap-1 sm:hidden">
           <Account onVideo={onVideo} active={active} onNavigate={go} role={role} unseen={unseen} />
           <button
             onClick={() => setOpen((v) => !v)}
             aria-label={open ? 'Close menu' : 'Open menu'}
             aria-expanded={open}
-            className={'shrink-0 ' + (onVideo ? 'text-white' : 'text-body')}
+            className={'-mr-2 shrink-0 p-2 ' + (onVideo ? 'text-white' : 'text-body')}
           >
             {open ? <X size={26} /> : <Menu size={26} />}
           </button>

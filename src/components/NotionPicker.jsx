@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Search, X } from 'lucide-react'
 import { notionOutline, notionStatus, searchNotion } from '../notionImport.js'
 
@@ -68,17 +69,18 @@ export default function NotionPicker({ onPick, onClose, verb = 'Import' }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  return (
-    <div className="fixed inset-0 z-[70] flex items-start justify-center bg-black/50 px-4 pt-[10vh]" onClick={onClose}>
+  // On the body, so a transformed page wrapper can't carry the overlay off-screen.
+  return createPortal(
+    <div className="fixed inset-0 z-[70] flex items-start justify-center bg-black/50 px-4 pt-[6vh] sm:pt-[10vh]" onClick={onClose}>
       <div
         role="dialog"
         aria-label="Import from Notion"
         onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[75vh] w-full max-w-xl flex-col rounded-sm border border-line bg-paper shadow-2xl"
+        className="flex max-h-[80dvh] w-full max-w-xl sm:max-h-[75vh] flex-col rounded-sm border border-line bg-paper shadow-2xl"
       >
-        <div className="flex items-center justify-between border-b border-line px-5 py-4">
+        <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3 sm:px-5 sm:py-4">
           <h2 className="font-serif text-2xl italic text-ink">Import from Notion</h2>
-          <button onClick={onClose} aria-label="Close" className="rounded-full p-1.5 text-muted hover:text-fuchsia">
+          <button onClick={onClose} aria-label="Close" className="-mr-2 rounded-full p-2.5 text-muted hover:text-fuchsia">
             <X size={18} />
           </button>
         </div>
@@ -98,7 +100,7 @@ export default function NotionPicker({ onPick, onClose, verb = 'Import' }) {
         {status?.connected && outline && (
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="px-5 pt-4">
-              <button onClick={() => setOutline(null)} className="text-xs text-muted hover:text-fuchsia">
+              <button onClick={() => setOutline(null)} className="-my-2 inline-block py-2 text-xs text-muted hover:text-fuchsia">
                 ← all pages
               </button>
               <p className="mt-2 font-serif text-xl italic text-ink">{outline.page.title}</p>
@@ -106,10 +108,10 @@ export default function NotionPicker({ onPick, onClose, verb = 'Import' }) {
                 Tick the pages that should become chapters, in this order. Notes can stay behind.
               </p>
               <div className="mt-2 flex gap-3 text-xs">
-                <button onClick={() => setChosen(new Set(outline.subpages.map((s) => s.id)))} className="text-muted underline hover:text-fuchsia">
+                <button onClick={() => setChosen(new Set(outline.subpages.map((s) => s.id)))} className="py-2 text-muted underline hover:text-fuchsia sm:py-0">
                   all
                 </button>
-                <button onClick={() => setChosen(new Set())} className="text-muted underline hover:text-fuchsia">
+                <button onClick={() => setChosen(new Set())} className="py-2 text-muted underline hover:text-fuchsia sm:py-0">
                   none
                 </button>
               </div>
@@ -139,7 +141,7 @@ export default function NotionPicker({ onPick, onClose, verb = 'Import' }) {
                       className="accent-fuchsia"
                     />
                     <span className="w-5 text-right text-xs tabular-nums text-muted">{i + 1}</span>
-                    <span className="font-serif italic text-body">{s.title}</span>
+                    <span className="min-w-0 break-words font-serif italic text-body">{s.title}</span>
                   </label>
                 </li>
               ))}
@@ -203,7 +205,12 @@ export default function NotionPicker({ onPick, onClose, verb = 'Import' }) {
                       <span className="block truncate font-serif text-lg italic text-ink group-hover:text-fuchsia">{p.title}</span>
                       <span className="block text-xs text-muted">edited {when(p.edited)}</span>
                     </span>
-                    <span className="shrink-0 rounded-full border border-line px-3 py-1 text-xs text-muted group-hover:border-fuchsia group-hover:text-fuchsia">
+                    <span
+                      className={
+                        'shrink-0 rounded-full border border-line px-3 py-1 text-xs text-muted group-hover:border-fuchsia group-hover:text-fuchsia sm:inline ' +
+                        (loadingPage === p.id ? 'inline' : 'hidden')
+                      }
+                    >
                       {loadingPage === p.id ? 'Opening…' : verb}
                     </span>
                   </button>
@@ -213,6 +220,7 @@ export default function NotionPicker({ onPick, onClose, verb = 'Import' }) {
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

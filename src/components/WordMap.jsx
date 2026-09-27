@@ -35,10 +35,19 @@ function packCloud(words, W, H) {
   const sorted = [...words].sort((a, b) => (b.weight || 1) - (a.weight || 1))
   const maxR = Math.min(W, H) / 2 // keep the cloud circular, not rectangular
   // A bigger cloud has to breathe smaller, or the outer words fall off the canvas.
-  const scale = words.length > 20 ? Math.max(0.55, Math.sqrt(20 / words.length)) : 1
+  // A narrow one (a phone) does too, a little.
+  const scale =
+    (words.length > 20 ? Math.max(0.55, Math.sqrt(20 / words.length)) : 1) * Math.min(1, Math.max(0.7, W / 600))
+  // Stretch the spiral along the long side: wide on a desk, tall on a phone.
+  const sx = W >= H ? 1.35 : 1
+  const sy = W >= H ? 1 : 1.35
 
   sorted.forEach((w, i) => {
-    const fontPx = Math.round((FS[w.weight] || 26) * scale)
+    // Never wider than the canvas — on a phone the heaviest word, the heart of
+    // the cloud, would otherwise never land at all — and never too small to read.
+    const fontPx = Math.round(
+      Math.max(12, Math.min((FS[w.weight] || 26) * scale, (W - 16) / (w.text.length * 0.56))),
+    )
     const wpx = Math.max(w.text.length * fontPx * 0.56, fontPx)
     const hpx = fontPx * 1.12
 
@@ -49,8 +58,8 @@ function packCloud(words, W, H) {
       const r = 5 * (t - t0) // spiral tightness
       if (r > maxR * 1.35) break
       // squash vertically so the cloud fills a landscape area as an ellipse
-      const x = cx + r * 1.35 * Math.cos(t) - wpx / 2
-      const y = cy + r * Math.sin(t) - hpx / 2
+      const x = cx + r * sx * Math.cos(t) - wpx / 2
+      const y = cy + r * sy * Math.sin(t) - hpx / 2
       if (x < 4 || y < 4 || x + wpx > W - 4 || y + hpx > H - 4) continue
       const box = { x, y, w: wpx, h: hpx }
       if (!placed.some((p) => boxesOverlap(p, box, 10))) {

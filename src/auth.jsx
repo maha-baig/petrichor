@@ -249,22 +249,22 @@ export default function SignIn({ recovering = false, onRecovered }) {
       {error && <p className="mt-4 text-center text-sm text-fuchsia">{error}</p>}
       {notice && <p className="mt-4 text-center text-sm text-body">{notice}</p>}
 
-      <div className="mt-6 flex flex-col items-center gap-2 text-sm text-muted">
+      <div className="mt-4 flex flex-col items-center gap-0 text-sm text-muted sm:mt-6 sm:gap-2">
         {mode === 'sign-in' && (
           <>
-            <button onClick={() => go('reset')} className="hover:text-fuchsia">
+            <button onClick={() => go('reset')} className="py-2.5 hover:text-fuchsia sm:py-0">
               Forgot your password?
             </button>
             <span>
               New here?{' '}
-              <button onClick={() => go('sign-up')} className="text-body underline underline-offset-2 hover:text-fuchsia">
+              <button onClick={() => go('sign-up')} className="py-2.5 text-body underline underline-offset-2 hover:text-fuchsia sm:py-0">
                 Make an account
               </button>
             </span>
           </>
         )}
         {(mode === 'sign-up' || mode === 'reset') && (
-          <button onClick={() => go('sign-in')} className="hover:text-fuchsia">
+          <button onClick={() => go('sign-in')} className="py-2.5 hover:text-fuchsia sm:py-0">
             ← Back to sign in
           </button>
         )}

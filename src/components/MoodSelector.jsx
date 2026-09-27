@@ -20,7 +20,7 @@ export default function MoodSelector({ mood, onChange }) {
             key={m}
             onClick={() => onChange(m)}
             className={
-              'rounded-full border px-3 py-1 text-sm transition-colors ' +
+              'rounded-full border px-3 py-2.5 text-sm transition-colors sm:py-1 ' +
               (active
                 ? 'border-fuchsia bg-fuchsia text-white'
                 : 'border-line text-muted hover:border-fuchsia/50 hover:text-body')

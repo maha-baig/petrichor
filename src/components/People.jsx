@@ -20,7 +20,7 @@ const Heading = ({ children }) => (
 const Btn = ({ children, ...props }) => (
   <button
     {...props}
-    className="rounded-full border border-line px-3 py-1 text-xs text-body transition-colors hover:border-fuchsia hover:text-fuchsia disabled:opacity-50"
+    className="rounded-full border border-line px-4 py-3 text-xs text-body transition-colors hover:border-fuchsia hover:text-fuchsia disabled:opacity-50 sm:px-3 sm:py-1"
   >
     {children}
   </button>
@@ -86,15 +86,15 @@ export default function People({ onOpenPiece, onSeen }) {
               <div className="min-w-0">
                 <p className="text-body">
                   <span className="font-bold">{r.name || '—'}</span>
-                  <span className="ml-2 text-xs text-muted">{r.email}</span>
-                  <span className={'ml-2 rounded-full px-2 py-0.5 text-xs ' + STATUS[r.status]}>{r.status}</span>
+                  <span className="ml-2 break-all text-xs text-muted">{r.email}</span>
+                  <span className={'ml-2 whitespace-nowrap rounded-full px-2 py-0.5 text-xs ' + STATUS[r.status]}>{r.status}</span>
                 </p>
                 {r.note && <p className="mt-0.5 font-serif text-sm italic text-muted">“{r.note}”</p>}
               </div>
               <div className="flex items-center gap-2">
                 {r.status !== 'approved' && <Btn onClick={() => decide(r, 'approved')}>Approve</Btn>}
                 {r.status !== 'blocked' && <Btn onClick={() => decide(r, 'blocked')}>Block</Btn>}
-                <button onClick={() => remove(r)} aria-label="Remove" className="p-1 text-muted hover:text-fuchsia">
+                <button onClick={() => remove(r)} aria-label="Remove" className="-mr-2 p-3.5 text-muted hover:text-fuchsia sm:mr-0 sm:p-1">
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -114,7 +114,7 @@ export default function People({ onOpenPiece, onSeen }) {
               className={'rounded-sm border p-4 ' + (fresh.has(c.id) ? 'border-fuchsia/50 bg-fuchsia/5' : 'border-line')}
             >
               <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
-                <p>
+                <p className="min-w-0">
                   <span className="font-bold text-body">{c.name}</span>
                   <span className="ml-2 text-xs text-muted">on </span>
                   <button
@@ -136,7 +136,7 @@ export default function People({ onOpenPiece, onSeen }) {
                       setComments((cs) => cs.filter((x) => x.id !== c.id))
                     }}
                     aria-label="Delete comment"
-                    className="hover:text-fuchsia"
+                    className="-m-3 p-3 hover:text-fuchsia sm:m-0 sm:p-0"
                   >
                     <Trash2 size={13} />
                   </button>

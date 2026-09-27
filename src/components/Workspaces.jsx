@@ -163,7 +163,7 @@ export default function Workspaces({ onOpen, onNew }) {
           <button
             onClick={bringLocalAcross}
             disabled={busy === 'import'}
-            className="rounded-full bg-fuchsia px-4 py-1.5 font-grotesk text-xs font-bold text-white disabled:opacity-60"
+            className="rounded-full bg-fuchsia px-4 py-2.5 font-grotesk text-xs font-bold text-white disabled:opacity-60 sm:py-1.5"
           >
             {busy === 'import' ? 'bringing across…' : 'bring them across'}
           </button>
@@ -217,7 +217,7 @@ export default function Workspaces({ onOpen, onNew }) {
           {/* Keeping and letting go. The gallery is for looking; this is for
               the housekeeping that used to live on each card. */}
           <details className="mt-10 border-t border-line pt-5">
-            <summary className="cursor-pointer font-grotesk text-[0.72rem] font-bold uppercase tracking-[0.18em] text-muted">
+            <summary className="cursor-pointer py-3 font-grotesk sm:py-2 text-[0.72rem] font-bold uppercase tracking-[0.18em] text-muted">
               Manage ({items.length})
             </summary>
             <ul className="mt-4 flex flex-col gap-1">
@@ -228,7 +228,7 @@ export default function Workspaces({ onOpen, onNew }) {
                 >
                   <button
                     onClick={() => onOpen(ws.id)}
-                    className="text-left font-serif italic text-body hover:text-fuchsia"
+                    className="py-2 text-left font-serif italic text-body hover:text-fuchsia sm:py-0"
                   >
                     {workspaceTitle(ws)}
                   </button>
@@ -239,7 +239,7 @@ export default function Workspaces({ onOpen, onNew }) {
                     <button
                       onClick={() => zip(ws)}
                       disabled={busy === ws.id}
-                      className="rounded-full border border-line px-3 py-1 text-xs text-muted transition-colors hover:border-fuchsia hover:text-fuchsia disabled:opacity-60"
+                      className="rounded-full border border-line px-3 py-2.5 text-xs text-muted transition-colors hover:border-fuchsia hover:text-fuchsia disabled:opacity-60 sm:py-1"
                     >
                       {busy === ws.id ? 'zipping…' : 'download'}
                     </button>
@@ -248,18 +248,18 @@ export default function Workspaces({ onOpen, onNew }) {
                         <span className="text-muted">delete for good?</span>
                         <button
                           onClick={() => remove(ws.id)}
-                          className="rounded-full bg-fuchsia px-3 py-1 font-bold text-white"
+                          className="rounded-full bg-fuchsia px-3 py-2.5 font-bold text-white sm:py-1"
                         >
                           yes
                         </button>
-                        <button onClick={() => setConfirming(null)} className="text-muted underline">
+                        <button onClick={() => setConfirming(null)} className="px-1 py-2.5 text-muted underline sm:py-0">
                           no
                         </button>
                       </span>
                     ) : (
                       <button
                         onClick={() => setConfirming(ws.id)}
-                        className="rounded-full border border-transparent px-3 py-1 text-xs text-muted transition-colors hover:text-fuchsia"
+                        className="rounded-full border border-transparent px-3 py-2.5 text-xs text-muted transition-colors hover:text-fuchsia sm:py-1"
                       >
                         delete
                       </button>

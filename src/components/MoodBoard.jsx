@@ -270,7 +270,7 @@ export default function MoodBoard({
               <select
                 value={activeSource || ''}
                 onChange={(e) => setSource(e.target.value)}
-                className="rounded-sm border border-line bg-card px-2 py-1 text-xs text-muted focus:border-fuchsia focus:outline-none"
+                className="rounded-sm border border-line bg-card px-2 py-1.5 text-base text-muted focus:border-fuchsia focus:outline-none sm:py-1 sm:text-xs"
               >
                 {sources.map((s) => (
                   <option key={s} value={s}>
@@ -287,7 +287,7 @@ export default function MoodBoard({
                 key={term}
                 onClick={() => gather(term)}
                 disabled={gathering}
-                className={`rounded-full border px-3 py-1 text-sm transition-colors disabled:opacity-50 ${
+                className={`rounded-full border px-3 py-2.5 text-sm transition-colors disabled:opacity-50 sm:py-1 ${
                   gatherTerm === term
                     ? 'border-fuchsia text-fuchsia'
                     : 'border-line text-muted hover:border-fuchsia hover:text-fuchsia'
@@ -386,7 +386,8 @@ export default function MoodBoard({
               renderOverlay={(item) => (
                 <button
                   onClick={() => setTiles((p) => p.filter((t) => t.id !== item.id))}
-                  className="absolute right-1.5 top-1.5 rounded-full bg-ink/70 px-2 py-0.5 text-xs text-paper opacity-0 transition-opacity group-hover:opacity-100"
+                  aria-label="Remove from the board"
+                  className="absolute right-1.5 top-1.5 grid h-10 w-10 place-items-center rounded-full bg-ink/70 text-xs text-paper opacity-0 transition-opacity group-hover:opacity-100 [@media(hover:none)]:opacity-100 sm:h-auto sm:w-auto sm:px-2 sm:py-0.5"
                 >
                   ✕
                 </button>
@@ -461,7 +462,7 @@ export default function MoodBoard({
 
       {image && (
         <div className="mt-8 animate-rise">
-          <img src={image} alt="generated" className="max-w-md rounded-sm border border-line" />
+          <img src={image} alt="generated" className="w-full max-w-md rounded-sm border border-line" />
           <div className="mt-2">
             <a
               href={image}

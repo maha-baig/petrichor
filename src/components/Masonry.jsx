@@ -63,7 +63,10 @@ export default function Masonry({
   const reduced =
     typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
-  const columns = width ? Math.max(1, Math.min(maxColumns, Math.floor(width / minColumnWidth))) : 1
+  // A phone column is narrower than minColumnWidth, but one tile per row there
+  // makes the board a very long scroll; two still read well down to ~240px.
+  const minColumns = width >= 240 ? Math.min(2, maxColumns) : 1
+  const columns = width ? Math.max(minColumns, Math.min(maxColumns, Math.floor(width / minColumnWidth))) : 1
 
   useEffect(() => {
     let alive = true

@@ -77,7 +77,7 @@ export default function Poems({ onOpen, onBooks }) {
         <button
           onClick={newPoem}
           disabled={busy || !data}
-          className="inline-flex items-center gap-1.5 rounded-full bg-fuchsia px-5 py-2 font-grotesk text-sm font-bold text-white transition-transform hover:scale-[1.02] disabled:opacity-60"
+          className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full bg-fuchsia px-5 py-2 font-grotesk text-sm font-bold text-white transition-transform hover:scale-[1.02] disabled:opacity-60"
         >
           <Plus size={15} /> {busy ? 'Opening…' : 'New poem'}
         </button>
@@ -91,7 +91,7 @@ export default function Poems({ onOpen, onBooks }) {
               key={c.id}
               onClick={() => setFilter(c.id)}
               className={
-                'rounded-full border px-3 py-1 transition-colors ' +
+                'min-h-[40px] rounded-full border px-3 py-1 transition-colors sm:min-h-0 ' +
                 (filter === c.id ? 'border-fuchsia bg-fuchsia/10 text-fuchsia' : 'border-line text-muted hover:text-body')
               }
             >
@@ -110,11 +110,11 @@ export default function Poems({ onOpen, onBooks }) {
                 autoFocus
                 placeholder="Collection name"
                 onBlur={(e) => newCollection(e.target.value)}
-                className="rounded-full border border-fuchsia bg-card px-3 py-1 text-sm text-body focus:outline-none"
+                className="w-44 max-w-full rounded-full border border-fuchsia bg-card min-h-[40px] px-3 py-1 text-sm text-body focus:outline-none sm:min-h-0 sm:w-auto"
               />
             </form>
           ) : (
-            <button onClick={() => setNaming(true)} className="inline-flex items-center gap-1 px-2 text-muted hover:text-fuchsia">
+            <button onClick={() => setNaming(true)} className="inline-flex min-h-[40px] items-center gap-1 px-2 text-muted hover:text-fuchsia sm:min-h-0">
               <FolderPlus size={14} /> collection
             </button>
           )}

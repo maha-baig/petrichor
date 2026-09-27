@@ -26,7 +26,7 @@ function Chip({ children, copyable }) {
           : undefined
       }
       className={
-        'rounded-full border px-3 py-1.5 text-sm transition-colors ' +
+        'rounded-full border px-3 py-2.5 text-sm transition-colors sm:py-1.5 ' +
         (copyable
           ? 'cursor-copy border-line text-body hover:border-fuchsia hover:text-fuchsia'
           : 'cursor-default border-line font-serif italic text-body')
@@ -44,7 +44,7 @@ function Pill({ onClick, busy, children, title }) {
       onClick={onClick}
       disabled={busy}
       title={title}
-      className="rounded-full border border-line px-3 py-1 text-xs text-muted transition-colors hover:border-fuchsia hover:text-fuchsia disabled:opacity-60"
+      className="rounded-full border border-line px-3 py-2.5 text-xs text-muted transition-colors hover:border-fuchsia hover:text-fuchsia disabled:opacity-60 sm:py-1"
     >
       {busy ? 'working…' : children}
     </button>
@@ -154,7 +154,7 @@ export default function Workspace({ workspace, onChange, onBack, onMakePoem }) {
   return (
     <section className="animate-rise">
       <div className="flex flex-wrap items-center gap-3">
-        <button onClick={onBack} className="text-sm text-muted hover:text-fuchsia">
+        <button onClick={onBack} className="py-2.5 text-sm text-muted hover:text-fuchsia sm:py-0">
           ← all workspaces
         </button>
         {savedAt && <span className="text-xs text-muted/70">saved</span>}
@@ -321,18 +321,18 @@ export default function Workspace({ workspace, onChange, onBack, onMakePoem }) {
       <div className="mt-12 border-t border-line pt-8">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h3 className="font-grotesk text-lg font-extrabold tracking-tight text-body">The poem</h3>
-          <span className="text-xs text-muted">
-            {poem.trim() ? `${poem.trim().split(/\s+/).length} words · saves itself` : 'saves itself as you write'}
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted">
+            <span>{poem.trim() ? `${poem.trim().split(/\s+/).length} words · saves itself` : 'saves itself as you write'}</span>
             {onMakePoem && poem.trim() && (
               <button
                 onClick={() => onMakePoem(poem)}
-                className="ml-3 rounded-full border border-line px-3 py-1 text-xs text-body transition-colors hover:border-fuchsia hover:text-fuchsia"
+                className="rounded-full border border-line px-3 py-2.5 text-xs text-body transition-colors hover:border-fuchsia hover:text-fuchsia sm:py-1"
               >
                 Move to Poems →
               </button>
             )}
             {poem.trim() && (
-              <span className="ml-2">
+              <span>
                 <ToBook label="Copy to book" onPick={(bookId) => addToBook(bookId, { title: workspaceTitle(ws), body: textToHtml(poem) })} />
               </span>
             )}

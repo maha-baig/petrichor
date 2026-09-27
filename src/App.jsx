@@ -34,7 +34,9 @@ function ThemeToggle() {
     <button
       onClick={toggle}
       aria-label="Toggle light and dark theme"
-      className="fixed bottom-4 right-4 z-[10000] rounded-full border border-line bg-card px-3.5 py-1.5 font-grotesk text-xs font-bold tracking-[0.08em] text-body shadow-lg"
+      // A floating button on a phone always sits over something as the page
+      // scrolls, so there it waits at the foot of the page instead.
+      className="mb-6 ml-auto mr-6 block rounded-full border border-line bg-card px-4 py-2.5 font-grotesk text-xs font-bold tracking-[0.08em] text-body sm:fixed sm:bottom-4 sm:right-4 sm:z-[10000] sm:m-0 sm:px-3.5 sm:py-1.5 sm:shadow-lg"
     >
       ◐ THEME
     </button>
@@ -261,7 +263,6 @@ export default function App() {
 
   const appView = (
       <div className="relative z-[1] min-h-screen">
-            <ThemeToggle />
             <TopNav tone="app" active={tab === 'work' ? 'inspire' : tab === 'poems' ? 'library' : tab} role={role} unseen={unseen} onNavigate={navigate} />
 
             {/* A book page wants more room than a tool; the editor takes the full width. */}
@@ -326,7 +327,7 @@ export default function App() {
 
                     {t === 'inspire' && owner && (
                       <>
-                        <div className="mb-8 flex flex-wrap gap-2 text-sm" role="tablist" aria-label="Inspiration">
+                        <div className="mb-6 flex flex-wrap gap-2 text-sm sm:mb-8" role="tablist" aria-label="Inspiration">
                           {INSPIRE.map((s) => (
                             <button
                               key={s.t}
@@ -337,7 +338,7 @@ export default function App() {
                                 setInspire(s.t)
                               }}
                               className={
-                                'rounded-full border px-4 py-1.5 font-grotesk font-medium transition-colors ' +
+                                'rounded-full border px-4 py-2.5 font-grotesk font-medium transition-colors sm:py-1.5 ' +
                                 (inspire === s.t ? 'border-fuchsia bg-fuchsia/10 text-fuchsia' : 'border-line text-muted hover:text-body')
                               }
                             >
@@ -387,6 +388,7 @@ export default function App() {
               />
 
             </div>
+            <ThemeToggle />
       </div>
   )
 

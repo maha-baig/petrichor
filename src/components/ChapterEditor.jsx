@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
 import { BubbleMenu } from '@tiptap/react/menus'
 import { Extension } from '@tiptap/react'
@@ -22,6 +23,7 @@ import {
   Globe,
   Home,
   BookOpenCheck,
+  Ellipsis,
   Maximize2,
   PenLine,
   Sparkles,
@@ -118,7 +120,7 @@ function ToolButton({ on, onClick, label, children, disabled }) {
       aria-pressed={on}
       title={label}
       className={
-        'grid h-8 w-8 place-items-center rounded-sm transition-colors disabled:opacity-30 ' +
+        'grid h-11 w-11 shrink-0 place-items-center rounded-sm transition-colors disabled:opacity-30 sm:h-8 sm:w-8 ' +
         (on ? 'bg-fuchsia/15 text-fuchsia' : 'text-muted hover:bg-body/5 hover:text-body')
       }
     >
@@ -127,7 +129,7 @@ function ToolButton({ on, onClick, label, children, disabled }) {
   )
 }
 
-const Divider = () => <span className="mx-1 h-5 w-px bg-line" aria-hidden />
+const Divider = () => <span className="mx-1 h-5 w-px shrink-0 bg-line" aria-hidden />
 
 function Toolbar({ editor }) {
   const s = useEditorState({
@@ -149,7 +151,7 @@ function Toolbar({ editor }) {
   const c = () => editor.chain().focus()
 
   return (
-    <div className="flex flex-wrap items-center gap-0.5">
+    <div className="editor-toolbar flex items-center gap-0.5 overflow-x-auto sm:flex-wrap sm:overflow-visible">
       <select
         value={s.style}
         onChange={(e) => {
@@ -158,7 +160,7 @@ function Toolbar({ editor }) {
           else c().toggleHeading({ level: v === 'h2' ? 2 : 3 }).run()
         }}
         aria-label="Text style"
-        className="mr-1 h-8 rounded-sm border border-line bg-card px-2 text-xs text-body focus:border-fuchsia focus:outline-none"
+        className="mr-1 h-11 shrink-0 rounded-sm border border-line bg-card px-2 text-xs text-body focus:border-fuchsia focus:outline-none sm:h-8"
       >
         <option value="p">Body text</option>
         <option value="h2">Heading</option>
@@ -225,9 +227,9 @@ function HistoryPanel({ pieceId, onRestore, onClose }) {
 
   return (
     <aside className="fixed inset-y-0 right-0 z-[60] flex w-full max-w-md flex-col border-l border-line bg-paper shadow-2xl">
-      <div className="flex items-center justify-between border-b border-line px-5 py-4">
+      <div className="flex items-center justify-between border-b border-line py-2 pl-5 pr-2 sm:px-5 sm:py-4">
         <h3 className="font-serif text-2xl italic text-ink">History</h3>
-        <button onClick={onClose} aria-label="Close history" className="rounded-full p-1.5 text-muted hover:text-fuchsia">
+        <button onClick={onClose} aria-label="Close history" className="rounded-full p-3.5 text-muted hover:text-fuchsia sm:p-1.5">
           <X size={18} />
         </button>
       </div>
@@ -242,7 +244,7 @@ function HistoryPanel({ pieceId, onRestore, onClose }) {
         )}
         {chosen ? (
           <div>
-            <button onClick={() => setOpen(null)} className="text-xs text-muted hover:text-fuchsia">
+            <button onClick={() => setOpen(null)} className="py-2 text-xs text-muted hover:text-fuchsia sm:py-0">
               ← all versions
             </button>
             <p className="mt-3 text-xs text-muted">
@@ -252,7 +254,7 @@ function HistoryPanel({ pieceId, onRestore, onClose }) {
               <p className="!mb-3 font-serif text-lg italic text-ink">{chosen.title || 'Untitled'}</p>
               <div dangerouslySetInnerHTML={{ __html: chosen.body || '<p>—</p>' }} />
             </div>
-            <button onClick={() => onRestore(chosen)} className="mt-4 rounded-full bg-fuchsia px-4 py-2 font-grotesk text-xs font-bold text-white">
+            <button onClick={() => onRestore(chosen)} className="mt-4 rounded-full bg-fuchsia px-4 py-3 font-grotesk text-xs font-bold text-white sm:py-2">
               Restore this version
             </button>
             <p className="mt-2 text-xs text-muted">What's on the page now is kept first, so nothing is lost.</p>
@@ -286,7 +288,7 @@ function AssistPanel({ assist, onAsk, onApply, onClose }) {
   const [question, setQuestion] = useState('')
   const { mode, text, status, result, error } = assist
   const Use = ({ value }) => (
-    <button onClick={() => onApply(value)} className="mt-2 rounded-full bg-fuchsia px-3 py-1 font-grotesk text-xs font-bold text-white">
+    <button onClick={() => onApply(value)} className="mt-2 rounded-full bg-fuchsia px-4 py-2.5 font-grotesk text-xs font-bold text-white sm:px-3 sm:py-1">
       Use this
     </button>
   )
@@ -295,11 +297,11 @@ function AssistPanel({ assist, onAsk, onApply, onClose }) {
   )
   return (
     <aside className="fixed inset-y-0 right-0 z-[60] flex w-full max-w-md flex-col border-l border-line bg-paper shadow-2xl">
-      <div className="flex items-center justify-between border-b border-line px-5 py-4">
+      <div className="flex items-center justify-between border-b border-line py-2 pl-5 pr-2 sm:px-5 sm:py-4">
         <h3 className="inline-flex items-center gap-2 font-serif text-2xl italic text-ink">
           <Sparkles size={18} className="text-fuchsia" /> {ASSIST_LABEL[mode]}
         </h3>
-        <button onClick={onClose} aria-label="Close" className="rounded-full p-1.5 text-muted hover:text-fuchsia">
+        <button onClick={onClose} aria-label="Close" className="rounded-full p-3.5 text-muted hover:text-fuchsia sm:p-1.5">
           <X size={18} />
         </button>
       </div>
@@ -322,9 +324,9 @@ function AssistPanel({ assist, onAsk, onApply, onClose }) {
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               placeholder="Does this line land? Is the tense consistent?"
-              className="w-full rounded-full border border-line bg-card px-4 py-2 text-body placeholder:text-muted/60 focus:border-fuchsia focus:outline-none"
+              className="w-full rounded-full border border-line bg-card px-4 py-2.5 text-[16px] text-body placeholder:text-muted/60 focus:border-fuchsia focus:outline-none sm:py-2 sm:text-sm"
             />
-            <button type="submit" className="mt-2 rounded-full bg-fuchsia px-4 py-1.5 font-grotesk text-xs font-bold text-white">
+            <button type="submit" className="mt-2 rounded-full bg-fuchsia px-4 py-2.5 font-grotesk text-xs font-bold text-white sm:py-1.5">
               Ask
             </button>
           </form>
@@ -379,9 +381,9 @@ function ReadingPanel({ text, onClose }) {
   }, [text])
   return (
     <aside className="fixed inset-y-0 right-0 z-[60] flex w-full max-w-md flex-col border-l border-line bg-paper shadow-2xl">
-      <div className="flex items-center justify-between border-b border-line px-5 py-4">
+      <div className="flex items-center justify-between border-b border-line py-2 pl-5 pr-2 sm:px-5 sm:py-4">
         <h3 className="font-serif text-2xl italic text-ink">A reading</h3>
-        <button onClick={onClose} aria-label="Close" className="rounded-full p-1.5 text-muted hover:text-fuchsia">
+        <button onClick={onClose} aria-label="Close" className="rounded-full p-3.5 text-muted hover:text-fuchsia sm:p-1.5">
           <X size={18} />
         </button>
       </div>
@@ -429,11 +431,11 @@ function ReadingPanel({ text, onClose }) {
 function ContentsPanel({ work, contents, currentId, onOpen, onClose, onBack, mode = 'book' }) {
   return (
     <aside className="fixed inset-y-0 left-0 z-[60] flex w-full max-w-xs flex-col border-r border-line bg-paper shadow-2xl">
-      <div className="flex items-center justify-between border-b border-line px-5 py-4">
-        <button onClick={onBack} className="min-w-0 truncate text-left font-serif text-xl italic text-ink hover:text-fuchsia">
+      <div className="flex items-center justify-between border-b border-line py-2 pl-5 pr-2 sm:px-5 sm:py-4">
+        <button onClick={onBack} className="min-w-0 truncate py-1.5 text-left font-serif text-xl italic text-ink hover:text-fuchsia sm:py-0">
           {bookTitle(work)}
         </button>
-        <button onClick={onClose} aria-label="Close contents" className="rounded-full p-1.5 text-muted hover:text-fuchsia">
+        <button onClick={onClose} aria-label="Close contents" className="rounded-full p-3.5 text-muted hover:text-fuchsia sm:p-1.5">
           <X size={18} />
         </button>
       </div>
@@ -443,7 +445,7 @@ function ContentsPanel({ work, contents, currentId, onOpen, onClose, onBack, mod
             <button
               onClick={() => onOpen(p)}
               className={
-                'flex w-full items-baseline gap-2 rounded-sm px-2 py-1.5 text-left transition-colors ' +
+                'flex w-full items-baseline gap-2 rounded-sm px-2 py-2.5 text-left transition-colors sm:py-1.5 ' +
                 (p.id === currentId ? 'bg-fuchsia/10 text-fuchsia' : 'text-body hover:bg-body/5') +
                 (p.depth === 2 ? ' pl-8' : p.depth === 1 ? ' pl-5' : '') +
                 (p.kind === 'part' ? ' mt-3' : '')
@@ -474,6 +476,8 @@ function ContentsPanel({ work, contents, currentId, onOpen, onClose, onBack, mod
  */
 export default function ChapterEditor({ workId, pieceId, onBack, onOpen, mode = 'book' }) {
   const poem = mode === 'poem'
+  // On a touch screen the phone's own copy/paste bar sits above a selection.
+  const coarse = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
   const [work, setWork] = useState(null)
   const [pieces, setPieces] = useState([])
   const [piece, setPiece] = useState(null)
@@ -486,6 +490,7 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen, mode = 
   const [reading, setReading] = useState(null) // the poem's text, while a reading is open
   const [excerpts, setExcerpts] = useState([]) // lines from this piece on the homepage
   const [excerptsOpen, setExcerptsOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false) // on a phone, the top bar's actions live in a "More" menu
   const [publishing, setPublishing] = useState(false)
   const [focus, setFocus] = useState(false)
   const [note, setNote] = useState(null)
@@ -498,6 +503,7 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen, mode = 
   const lastSnap = useRef({ at: 0, body: null })
   const timer = useRef(null)
   const startWords = useRef(null)
+  const moreBox = useRef(null)
 
   const editor = useEditor({
     extensions: [
@@ -635,13 +641,22 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen, mode = 
         keepVersion()
       }
       if (e.key === 'Escape') {
-        if (panel) setPanel(null)
+        if (moreOpen) setMoreOpen(false)
+        else if (panel) setPanel(null)
         else if (focus) setFocus(false)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   })
+
+  // A tap anywhere else closes the phone's "More" menu.
+  useEffect(() => {
+    if (!moreOpen) return
+    const close = (e) => !moreBox.current?.contains(e.target) && setMoreOpen(false)
+    document.addEventListener('pointerdown', close)
+    return () => document.removeEventListener('pointerdown', close)
+  }, [moreOpen])
 
   useEffect(() => {
     document.documentElement.classList.toggle('writing-focus', focus)
@@ -812,13 +827,13 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen, mode = 
   return (
     <div className={focus ? 'fixed inset-0 z-[50] overflow-auto bg-paper2' : '-mx-6 -mt-4 min-h-screen bg-paper2/60'}>
       {/* ── Top bar ───────────────────────────────────────────────────────── */}
-      <div className={'sticky top-0 z-40 border-b border-line bg-paper/95 backdrop-blur transition-opacity ' + (focus ? 'opacity-0 hover:opacity-100 focus-within:opacity-100' : '')}>
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5">
-          <button onClick={onBack} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-fuchsia" title={poem ? "Back to your poems" : "Back to the book"}>
+      <div className={'sticky top-0 z-40 border-b border-line bg-paper/95 backdrop-blur transition-opacity ' + (focus ? 'pointer-fine:opacity-0 pointer-fine:hover:opacity-100 pointer-fine:focus-within:opacity-100' : '')}>
+        <div className="relative mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-1.5 sm:gap-y-2 sm:py-2.5">
+          <button onClick={onBack} className="inline-flex min-w-0 items-center gap-1.5 py-2.5 text-sm text-muted hover:text-fuchsia sm:py-0" title={poem ? "Back to your poems" : "Back to the book"}>
             <ArrowLeft size={16} />
-            <span className="max-w-[12rem] truncate font-serif italic">{work ? bookTitle(work) : '…'}</span>
+            <span className="max-w-[8rem] truncate font-serif italic sm:max-w-[12rem]">{work ? bookTitle(work) : '…'}</span>
           </button>
-          <button onClick={() => setPanel('contents')} className="rounded-full p-1.5 text-muted hover:text-fuchsia" aria-label="Contents" title="Contents">
+          <button onClick={() => setPanel('contents')} className="-ml-2 rounded-full p-3.5 text-muted hover:text-fuchsia sm:ml-0 sm:p-1.5" aria-label="Contents" title="Contents">
             <PanelLeft size={16} />
           </button>
           <span className="hidden text-xs text-muted sm:inline">{kindLabel}</span>
@@ -828,110 +843,140 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen, mode = 
           </span>
           {note && <span className="text-xs text-fuchsia">{note}</span>}
           <span className="ml-auto flex items-center gap-1">
-            {piece && (
-              <select
-                value={piece.status}
-                onChange={(e) => updatePiece(piece.id, { status: e.target.value }).then((row) => setPiece((p) => ({ ...p, ...row })))}
-                aria-label="Status"
-                className="h-8 rounded-full border border-line bg-card px-3 text-xs text-muted focus:border-fuchsia focus:outline-none"
-              >
-                {STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            )}
-            {piece && (
+            {/* On a phone these sit behind "More"; from sm up they're inline as ever. */}
+            <span ref={moreBox} className="order-1 flex items-center sm:order-none sm:contents">
               <button
-                onClick={togglePublished}
-                disabled={publishing}
-                title={piece.published_at ? 'Published: approved readers can see this. Click to take it back to draft.' : 'Show this to your approved readers'}
+                onClick={() => setMoreOpen((v) => !v)}
+                aria-expanded={moreOpen}
+                aria-label="More"
+                title="More"
+                className={'rounded-full p-3.5 transition-colors hover:text-fuchsia sm:hidden ' + (moreOpen ? 'text-fuchsia' : 'text-muted')}
+              >
+                <Ellipsis size={16} />
+              </button>
+              <span
                 className={
-                  'inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs transition-colors disabled:opacity-60 ' +
-                  (piece.published_at ? 'border-fuchsia bg-fuchsia/10 text-fuchsia' : 'border-line text-muted hover:border-fuchsia hover:text-fuchsia')
+                  (moreOpen
+                    ? 'absolute right-4 top-full z-50 flex w-64 max-w-[calc(100vw-2rem)] flex-col items-stretch gap-2 rounded-sm border border-line bg-paper p-3 shadow-xl '
+                    : 'hidden ') +
+                  'sm:static sm:z-auto sm:flex sm:w-auto sm:max-w-none sm:flex-row sm:items-center sm:gap-1 sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none'
                 }
               >
-                <Globe size={13} /> {publishing ? '…' : piece.published_at ? 'Published' : 'Publish'}
-              </button>
-            )}
-            {poem && (
-              <button
-                onClick={() => editor && setReading(editor.getText({ blockSeparator: '\n\n' }))}
-                className="hidden items-center gap-1 rounded-full border border-line px-3 py-1.5 text-xs text-muted transition-colors hover:border-fuchsia hover:text-fuchsia sm:inline-flex"
-                title="The Reviewer's reading of this poem"
-              >
-                <BookOpenCheck size={13} /> Get a reading
-              </button>
-            )}
-            {poem && piece && (
-              <button
-                onClick={toggleFeatured}
-                title={piece.featured ? 'Its lines drift across the homepage. Click to take it off.' : 'Show its lines on the public homepage'}
-                className={
-                  'hidden items-center gap-1 rounded-full border px-3 py-1.5 text-xs transition-colors sm:inline-flex ' +
-                  (piece.featured ? 'border-fuchsia bg-fuchsia/10 text-fuchsia' : 'border-line text-muted hover:border-fuchsia hover:text-fuchsia')
-                }
-              >
-                <Home size={13} /> {piece.featured ? 'On homepage' : 'Show on homepage'}
-              </button>
-            )}
-            {poem && piece && <ToBook canMove onPick={poemToBook} />}
-            {excerpts.length > 0 && (
-              <span className="relative hidden sm:inline-flex">
-                <button
-                  onClick={() => setExcerptsOpen((v) => !v)}
-                  aria-expanded={excerptsOpen}
-                  className="inline-flex items-center gap-1 rounded-full border border-fuchsia/50 px-3 py-1.5 text-xs text-fuchsia"
-                >
-                  <Home size={13} /> Lines on homepage · {excerpts.length}
-                </button>
-                {excerptsOpen && (
-                  <div className="absolute right-0 top-full z-50 mt-2 w-80 rounded-sm border border-line bg-paper p-2 shadow-xl">
-                    {excerpts.map((x) => (
-                      <div key={x.id} className="group flex items-start gap-2 rounded-sm px-2 py-2 hover:bg-body/5">
-                        <p className="flex-1 whitespace-pre-wrap font-serif text-sm italic text-body">{x.body}</p>
-                        <button
-                          onClick={async () => {
-                            await removeExcerpt(x.id)
-                            setExcerpts((xs) => xs.filter((y) => y.id !== x.id))
-                          }}
-                          aria-label="Take off the homepage"
-                          className="shrink-0 p-0.5 text-muted hover:text-fuchsia"
-                        >
-                          <X size={13} />
-                        </button>
-                      </div>
+                {piece && (
+                  <select
+                    value={piece.status}
+                    onChange={(e) => updatePiece(piece.id, { status: e.target.value }).then((row) => setPiece((p) => ({ ...p, ...row })))}
+                    aria-label="Status"
+                    className="h-11 rounded-full border border-line bg-card px-3 text-xs text-muted focus:border-fuchsia focus:outline-none sm:h-8"
+                  >
+                    {STATUSES.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
                     ))}
-                  </div>
+                  </select>
                 )}
+                {piece && (
+                  <button
+                    onClick={togglePublished}
+                    disabled={publishing}
+                    title={piece.published_at ? 'Published: approved readers can see this. Click to take it back to draft.' : 'Show this to your approved readers'}
+                    className={
+                      'inline-flex items-center gap-1 rounded-full border px-3 py-3 text-xs transition-colors disabled:opacity-60 sm:py-1.5 ' +
+                      (piece.published_at ? 'border-fuchsia bg-fuchsia/10 text-fuchsia' : 'border-line text-muted hover:border-fuchsia hover:text-fuchsia')
+                    }
+                  >
+                    <Globe size={13} /> {publishing ? '…' : piece.published_at ? 'Published' : 'Publish'}
+                  </button>
+                )}
+                {poem && (
+                  <button
+                    onClick={() => {
+                      if (!editor) return
+                      setMoreOpen(false)
+                      setReading(editor.getText({ blockSeparator: '\n\n' }))
+                    }}
+                    className="inline-flex items-center gap-1 rounded-full border border-line px-3 py-3 text-xs text-muted transition-colors hover:border-fuchsia hover:text-fuchsia sm:py-1.5"
+                    title="The Reviewer's reading of this poem"
+                  >
+                    <BookOpenCheck size={13} /> Get a reading
+                  </button>
+                )}
+                {poem && piece && (
+                  <button
+                    onClick={toggleFeatured}
+                    title={piece.featured ? 'Its lines drift across the homepage. Click to take it off.' : 'Show its lines on the public homepage'}
+                    className={
+                      'inline-flex items-center gap-1 rounded-full border px-3 py-3 text-xs transition-colors sm:py-1.5 ' +
+                      (piece.featured ? 'border-fuchsia bg-fuchsia/10 text-fuchsia' : 'border-line text-muted hover:border-fuchsia hover:text-fuchsia')
+                    }
+                  >
+                    <Home size={13} /> {piece.featured ? 'On homepage' : 'Show on homepage'}
+                  </button>
+                )}
+                {poem && piece && <ToBook canMove onPick={poemToBook} className="w-full py-3 sm:w-auto sm:py-1.5" />}
+                {excerpts.length > 0 && (
+                  <span className="relative inline-flex">
+                    <button
+                      onClick={() => setExcerptsOpen((v) => !v)}
+                      aria-expanded={excerptsOpen}
+                      className="inline-flex w-full items-center gap-1 rounded-full border border-fuchsia/50 px-3 py-3 text-xs text-fuchsia sm:w-auto sm:py-1.5"
+                    >
+                      <Home size={13} /> Lines on homepage · {excerpts.length}
+                    </button>
+                    {excerptsOpen && (
+                      <div className="absolute right-0 top-full z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-sm border border-line bg-paper p-2 shadow-xl">
+                        {excerpts.map((x) => (
+                          <div key={x.id} className="group flex items-start gap-2 rounded-sm px-2 py-2 hover:bg-body/5">
+                            <p className="flex-1 whitespace-pre-wrap font-serif text-sm italic text-body">{x.body}</p>
+                            <button
+                              onClick={async () => {
+                                await removeExcerpt(x.id)
+                                setExcerpts((xs) => xs.filter((y) => y.id !== x.id))
+                              }}
+                              aria-label="Take off the homepage"
+                              className="-m-2 shrink-0 p-2.5 text-muted hover:text-fuchsia sm:m-0 sm:p-0.5"
+                            >
+                              <X size={13} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </span>
+                )}
+                <button onClick={keepVersion} className="rounded-full border border-line px-3 py-3 text-left text-xs text-muted transition-colors hover:border-fuchsia hover:text-fuchsia sm:hidden">
+                  Keep this version
+                </button>
               </span>
-            )}
+            </span>
             <span className="flex items-center rounded-full border border-line p-0.5" role="group" aria-label="View">
               <button
                 onClick={() => setView('write')}
                 aria-pressed={view === 'write'}
-                className={'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs transition-colors ' + (view === 'write' ? 'bg-fuchsia text-white' : 'text-muted hover:text-body')}
+                aria-label="Write"
+                className={'inline-flex items-center gap-1 rounded-full px-3.5 py-3.5 text-xs transition-colors sm:px-2.5 sm:py-1 ' + (view === 'write' ? 'bg-fuchsia text-white' : 'text-muted hover:text-body')}
               >
-                <PenLine size={13} /> Write
+                <PenLine size={13} /> <span className="hidden sm:inline">Write</span>
               </button>
               <button
                 onClick={() => setView('preview')}
                 aria-pressed={view === 'preview'}
-                className={'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs transition-colors ' + (view === 'preview' ? 'bg-fuchsia text-white' : 'text-muted hover:text-body')}
+                aria-label="Preview"
+                className={'inline-flex items-center gap-1 rounded-full px-3.5 py-3.5 text-xs transition-colors sm:px-2.5 sm:py-1 ' + (view === 'preview' ? 'bg-fuchsia text-white' : 'text-muted hover:text-body')}
               >
-                <Eye size={13} /> Preview
+                <Eye size={13} /> <span className="hidden sm:inline">Preview</span>
               </button>
             </span>
             <button onClick={keepVersion} className="hidden rounded-full border border-line px-3 py-1.5 text-xs text-muted transition-colors hover:border-fuchsia hover:text-fuchsia sm:inline">
               Keep this version
             </button>
-            <button onClick={() => setPanel('history')} className="rounded-full p-2 text-muted hover:text-fuchsia" aria-label="History" title="History">
+            <button onClick={() => setPanel('history')} className="order-2 rounded-full p-3.5 text-muted hover:text-fuchsia sm:order-none sm:p-2" aria-label="History" title="History">
               <History size={16} />
             </button>
             <button
               onClick={() => setFocus((f) => !f)}
-              className="rounded-full p-2 text-muted hover:text-fuchsia"
+              className="order-2 -mr-2 rounded-full p-3.5 text-muted hover:text-fuchsia sm:order-none sm:mr-0 sm:p-2"
               aria-label={focus ? 'Leave focus mode' : 'Focus mode'}
               title={focus ? 'Leave focus mode (Esc)' : 'Focus mode'}
             >
@@ -940,16 +985,16 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen, mode = 
           </span>
         </div>
         {editor && view === 'write' && (
-          <div className="mx-auto max-w-6xl border-t border-line/60 px-4 py-1.5">
+          <div className="mx-auto max-w-6xl border-t border-line/60 px-2 py-1 sm:px-4 sm:py-1.5">
             <Toolbar editor={editor} />
           </div>
         )}
       </div>
 
       {/* ── The page ──────────────────────────────────────────────────────── */}
-      <div className="px-3 py-8 sm:px-6 sm:py-12">
-        <article className="mx-auto min-h-[70vh] w-full max-w-[46rem] rounded-[2px] bg-card px-6 py-12 shadow-[0_1px_3px_rgba(0,0,0,0.12),0_18px_40px_-24px_rgba(0,0,0,0.5)] sm:px-16 sm:py-20">
-          <div className="mb-10 text-center">
+      <div className="px-2 py-4 sm:px-6 sm:py-12">
+        <article className="mx-auto min-h-[70vh] w-full max-w-[46rem] rounded-[2px] bg-card px-5 py-10 shadow-[0_1px_3px_rgba(0,0,0,0.12),0_18px_40px_-24px_rgba(0,0,0,0.5)] sm:px-16 sm:py-20">
+          <div className="mb-8 text-center sm:mb-10">
             <div className="font-grotesk text-[0.7rem] font-bold uppercase tracking-[0.3em] text-muted">{kindLabel}</div>
             <input
               value={title}
@@ -969,7 +1014,7 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen, mode = 
               className="page-surface mt-3 w-full bg-transparent text-center font-serif text-3xl italic leading-tight text-ink placeholder:text-muted/40 focus:outline-none sm:text-4xl"
             />
             {view === 'write' && (
-              <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
+              <div className="mt-1 flex flex-wrap items-center justify-center gap-1.5 sm:mt-2">
                 {Array.isArray(titleIdeas) ? (
                   <>
                     {titleIdeas.map((t) => (
@@ -980,12 +1025,12 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen, mode = 
                           schedule(t, latest.current.body)
                           setTitleIdeas(null)
                         }}
-                        className="rounded-full border border-line px-3 py-1 font-serif text-sm italic text-body transition-colors hover:border-fuchsia hover:text-fuchsia"
+                        className="rounded-full border border-line px-3 py-2 font-serif text-sm italic text-body transition-colors hover:border-fuchsia hover:text-fuchsia sm:py-1"
                       >
                         {t}
                       </button>
                     ))}
-                    <button onClick={() => setTitleIdeas(null)} className="px-2 text-xs text-muted hover:text-body">
+                    <button onClick={() => setTitleIdeas(null)} className="px-2 py-2.5 text-xs text-muted hover:text-body sm:py-0">
                       keep mine
                     </button>
                   </>
@@ -993,7 +1038,7 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen, mode = 
                   <button
                     onClick={ideasForTitle}
                     disabled={titleIdeas === 'loading'}
-                    className="inline-flex items-center gap-1 text-xs text-muted transition-colors hover:text-fuchsia disabled:opacity-60"
+                    className="inline-flex items-center gap-1 py-2.5 text-xs text-muted transition-colors hover:text-fuchsia disabled:opacity-60 sm:py-0"
                   >
                     <Sparkles size={12} /> {titleIdeas === 'loading' ? 'Thinking of titles…' : 'Suggest titles'}
                   </button>
@@ -1016,15 +1061,19 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen, mode = 
             <EditorContent editor={editor} />
           </div>
           {editor && view === 'write' && (
-            <BubbleMenu editor={editor} shouldShow={({ state }) => !state.selection.empty && !assist}>
+            <BubbleMenu
+              editor={editor}
+              shouldShow={({ state }) => !state.selection.empty && !assist}
+              options={{ placement: coarse ? 'bottom' : 'top', shift: { padding: 8 }, flip: { padding: 8 } }}
+            >
               <div className="flex items-center gap-0.5 rounded-full border border-line bg-paper p-1 shadow-xl">
-                <Sparkles size={13} className="mx-1.5 text-fuchsia" aria-hidden />
+                <Sparkles size={13} className="mx-1.5 shrink-0 text-fuchsia" aria-hidden />
                 {['fix', 'suggest', 'tighten', 'ask'].map((m) => (
                   <button
                     key={m}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => startAssist(m)}
-                    className="rounded-full px-2.5 py-1 font-grotesk text-xs text-body transition-colors hover:bg-fuchsia/10 hover:text-fuchsia"
+                    className="min-w-11 rounded-full px-2 py-3.5 font-grotesk text-xs text-body sm:min-w-0 transition-colors hover:bg-fuchsia/10 hover:text-fuchsia sm:px-2.5 sm:py-1"
                   >
                     {{ fix: 'Fix', suggest: 'Suggest', tighten: 'Tighten', ask: 'Ask' }[m]}
                   </button>
@@ -1034,7 +1083,7 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen, mode = 
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={addToHomepage}
                   title="Show these lines on the public homepage"
-                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-grotesk text-xs text-body transition-colors hover:bg-fuchsia/10 hover:text-fuchsia"
+                  className="inline-flex items-center gap-1 rounded-full px-2 py-3.5 font-grotesk text-xs text-body transition-colors hover:bg-fuchsia/10 hover:text-fuchsia sm:px-2.5 sm:py-1"
                 >
                   <Home size={12} /> Homepage
                 </button>
@@ -1045,9 +1094,9 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen, mode = 
 
         {/* ── Between chapters ──────────────────────────────────────────── */}
         {!focus && (
-          <nav className="mx-auto mt-8 flex max-w-[46rem] items-center justify-between gap-4 text-sm">
+          <nav className="mx-auto mt-4 flex max-w-[46rem] items-center justify-between gap-4 px-2 text-sm sm:mt-8 sm:px-0">
             {prev ? (
-              <button onClick={() => onOpen(prev)} className="inline-flex min-w-0 items-center gap-1 text-muted hover:text-fuchsia">
+              <button onClick={() => onOpen(prev)} className="inline-flex min-w-0 items-center gap-1 py-2.5 text-muted hover:text-fuchsia sm:py-0">
                 <ChevronLeft size={16} className="shrink-0" />
                 <span className="truncate font-serif italic">{pieceLabel(prev)}</span>
               </button>
@@ -1055,12 +1104,12 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen, mode = 
               <span />
             )}
             {next ? (
-              <button onClick={() => onOpen(next)} className="inline-flex min-w-0 items-center gap-1 text-muted hover:text-fuchsia">
+              <button onClick={() => onOpen(next)} className="inline-flex min-w-0 items-center gap-1 py-2.5 text-muted hover:text-fuchsia sm:py-0">
                 <span className="truncate font-serif italic">{pieceLabel(next)}</span>
                 <ChevronRight size={16} className="shrink-0" />
               </button>
             ) : (
-              <button onClick={onBack} className="text-muted hover:text-fuchsia">
+              <button onClick={onBack} className="py-2.5 text-muted hover:text-fuchsia sm:py-0">
                 {poem ? 'Back to your poems' : 'Back to contents'}
               </button>
             )}
@@ -1070,7 +1119,7 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen, mode = 
 
       {/* ── Word count ────────────────────────────────────────────────────── */}
       <div className="sticky bottom-0 z-30 border-t border-line bg-paper/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 text-xs text-muted">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-1 py-2 pl-4 pr-16 text-xs text-muted sm:pr-32">
           <span>{words.toLocaleString()} words</span>
           <span>~{Math.max(1, Math.round(words / 250))} min read</span>
           <span className="hidden sm:inline">Tab indents · Shift+Enter for a line break without a gap</span>
@@ -1078,31 +1127,38 @@ export default function ChapterEditor({ workId, pieceId, onBack, onOpen, mode = 
         </div>
       </div>
 
-      {reading !== null && <ReadingPanel text={reading} onClose={() => setReading(null)} />}
-      {assist && (
-        <AssistPanel
-          assist={assist}
-          onAsk={(q) => runAssist(assist, q)}
-          onApply={applyAssist}
-          onClose={() => setAssist(null)}
-        />
+      {/* Side panels go to <body>: a page transition's transform would otherwise
+          pin "fixed" to the page instead of the screen. */}
+      {createPortal(
+        <>
+          {reading !== null && <ReadingPanel text={reading} onClose={() => setReading(null)} />}
+          {assist && (
+            <AssistPanel
+              assist={assist}
+              onAsk={(q) => runAssist(assist, q)}
+              onApply={applyAssist}
+              onClose={() => setAssist(null)}
+            />
+          )}
+          {panel === 'history' && piece && <HistoryPanel pieceId={piece.id} onRestore={restore} onClose={() => setPanel(null)} />}
+          {panel === 'contents' && work && (
+            <ContentsPanel
+              work={work}
+              contents={contents}
+              currentId={pieceId}
+              onOpen={(p) => {
+                setPanel(null)
+                onOpen(p)
+              }}
+              onClose={() => setPanel(null)}
+              onBack={onBack}
+              mode={mode}
+            />
+          )}
+          {panel && <div className="fixed inset-0 z-[55] bg-black/30" onClick={() => setPanel(null)} aria-hidden />}
+        </>,
+        document.body,
       )}
-      {panel === 'history' && piece && <HistoryPanel pieceId={piece.id} onRestore={restore} onClose={() => setPanel(null)} />}
-      {panel === 'contents' && work && (
-        <ContentsPanel
-          work={work}
-          contents={contents}
-          currentId={pieceId}
-          onOpen={(p) => {
-            setPanel(null)
-            onOpen(p)
-          }}
-          onClose={() => setPanel(null)}
-          onBack={onBack}
-          mode={mode}
-        />
-      )}
-      {panel && <div className="fixed inset-0 z-[55] bg-black/30" onClick={() => setPanel(null)} aria-hidden />}
     </div>
   )
 }
