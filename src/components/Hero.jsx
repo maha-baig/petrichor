@@ -64,7 +64,7 @@ function Drift({ poems }) {
     <div
       ref={box}
       aria-hidden="true"
-      className="pointer-events-none absolute inset-y-0 left-0 z-[5] w-full overflow-hidden px-6 md:w-1/2 lg:px-10"
+      className="pointer-events-none absolute inset-y-0 left-0 w-full overflow-hidden md:w-1/2"
       style={{
         maskImage: 'linear-gradient(to bottom, transparent 0%, transparent 9%, #000 24%, #000 66%, transparent 84%)',
         WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, transparent 9%, #000 24%, #000 66%, transparent 84%)',
@@ -233,19 +233,25 @@ export default function Hero({ onEnter, role }) {
         }}
       />
 
-      {drifting && <Drift poems={poems} />}
+      {/* Same column as the logo and the rest of the site: the lines start where the logo does. */}
+      {drifting && (
+        <div className="pointer-events-none absolute inset-0 z-[5] px-6">
+          <div className="relative mx-auto h-full max-w-5xl">
+            <Drift poems={poems} />
+          </div>
+        </div>
+      )}
 
       <div className="relative z-10 flex min-h-screen flex-col">
         <TopNav
           tone="video"
-          wide
           active="home"
           role={role}
           onNavigate={(t) => t !== 'home' && onEnter?.({ tab: t })}
         />
 
         {/* Words on one side, the flowers on the other. On phones they stack. */}
-        <main className="mx-auto grid w-full max-w-[88rem] flex-1 items-center gap-6 px-6 pb-10 md:grid-cols-[1fr_1fr] md:gap-8 lg:px-10">
+        <main className="mx-auto grid w-full max-w-5xl flex-1 items-center gap-6 px-6 pb-10 md:grid-cols-[1fr_1fr] md:gap-8">
           <div
             className={
               'order-2 text-center md:order-1 md:text-left ' + (drifting ? 'relative z-10 md:self-end md:pb-6' : '')
