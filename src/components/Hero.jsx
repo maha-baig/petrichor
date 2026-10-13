@@ -1,9 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
 import TopNav from './TopNav.jsx'
-import { heroLines } from '../library.js'
-import { isSupabaseConfigured } from '../lib/supabase.js'
 
 // The hero background: pink flowers blooming out of true black, traced with
 // fine white measuring lines. A local, self-contained clip (public/hero-flowers.mp4,
@@ -13,103 +11,9 @@ const BG_SRC = '/hero-flowers.mp4'
 const FADE_MS = 500
 const TAIL_S = 0.5 // fade out this long before the end, then loop with a fade in
 
-/**
- * Her own lines, drifting down the page from the top to the bottom: each one
- * once per pass, with no names attached. When the last has passed, a new pass
- * begins, in a fresh order, from the top. Reduced motion: the lines stand still.
- */
-// Fade the lines in below the navbar (never less than its height, so on short
-// phone screens they don't cross the logo and menu) and out above the button.
-const DRIFT_MASK =
-  'linear-gradient(to bottom, transparent 0%, transparent max(9%, 5.5rem), #000 max(24%, 9rem), #000 66%, transparent 84%)'
-
-function Drift({ poems }) {
-  const reduce = useReducedMotion()
-  const box = useRef(null)
-  const track = useRef(null)
-  const [pass, setPass] = useState(0)
-  const [size, setSize] = useState(null) // { box, track } heights in px
-
-  // Every distinct line, poems kept whole but in a random order each pass.
-  const lines = useMemo(() => {
-    const order = [...poems]
-    for (let i = order.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1))
-      ;[order[i], order[j]] = [order[j], order[i]]
-    }
-    const seen = new Set()
-    const out = []
-    for (const p of order) {
-      const mine = p.lines.filter((l) => {
-        const k = l.toLowerCase()
-        if (seen.has(k)) return false
-        seen.add(k)
-        return true
-      })
-      if (mine.length) out.push(mine)
-    }
-    return out
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [poems, pass])
-
-  useEffect(() => {
-    const measure = () => box.current && track.current && setSize({ box: box.current.offsetHeight, track: track.current.offsetHeight })
-    measure()
-    const ro = new ResizeObserver(measure)
-    box.current && ro.observe(box.current)
-    track.current && ro.observe(track.current)
-    return () => ro.disconnect()
-  }, [lines])
-
-  const PX_PER_S = 26
-  const moving = !reduce && size
-  const seconds = size ? (size.box + size.track) / PX_PER_S : 0
-
-  return (
-    <div
-      ref={box}
-      aria-hidden="true"
-      className="pointer-events-none absolute inset-y-0 left-0 w-full overflow-hidden md:w-1/2"
-      style={{ maskImage: DRIFT_MASK, WebkitMaskImage: DRIFT_MASK }}
-    >
-      {moving && (
-        <style>{`@keyframes hero-drift-${pass} { from { transform: translateY(-100%) } to { transform: translateY(${size.box}px) } }`}</style>
-      )}
-      <div
-        key={pass}
-        ref={track}
-        onAnimationEnd={() => setPass((n) => n + 1)}
-        className="mx-auto flex max-w-xl flex-col gap-5 md:ml-auto md:mr-0 md:max-w-none"
-        style={
-          moving
-            ? { animation: `hero-drift-${pass} ${seconds}s linear 1 both` }
-            : { transform: reduce ? 'translateY(12vh)' : 'translateY(-100%)' }
-        }
-      >
-        {lines.map((poem, i) => (
-          <div key={i} className="flex flex-col gap-5 pb-10">
-            {poem.map((l) => (
-              <p key={l} className="font-serif text-2xl italic leading-snug text-white/85 [text-shadow:0_1px_14px_rgba(0,0,0,0.9)] md:text-3xl">
-                {l}
-              </p>
-            ))}
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 export default function Hero({ onEnter, role }) {
-  // Lines from her homepage poems: undefined while asking, [] if there are none.
-  const [poems, setPoems] = useState(undefined)
   const reduce = useReducedMotion()
-  useEffect(() => {
-    if (!isSupabaseConfigured) return setPoems([])
-    heroLines().then(setPoems, () => setPoems([]))
-  }, [])
-  const drifting = poems?.length > 0
-  const ready = poems !== undefined
+  const ready = true
 
   const videoRef = useRef(null)
   const rafRef = useRef(0)
@@ -235,19 +139,7 @@ export default function Hero({ onEnter, role }) {
         }}
       />
 
-      {/* Same column as the logo and the rest of the site: the lines start where the logo does. */}
-      {drifting && (
-        <div className="pointer-events-none absolute inset-0 z-[5] px-6">
-          <div className="relative mx-auto h-full max-w-5xl">
-            <Drift poems={poems} />
-          </div>
-        </div>
-      )}
-
-      {/* On phones the flowers sit in the lines' path; dropping this layer's
-          z-index there lets the lines pass over the clip instead of being cut
-          off behind it (the nav and button keep their own z above them). */}
-      <div className="relative z-10 flex min-h-screen flex-col max-md:z-auto">
+      <div className="relative z-10 flex min-h-screen flex-col">
         <TopNav
           tone="video"
           active="home"
@@ -257,15 +149,8 @@ export default function Hero({ onEnter, role }) {
 
         {/* Words on one side, the flowers on the other. On phones they stack. */}
         <main className="mx-auto grid w-full max-w-5xl flex-1 items-center gap-6 px-6 pb-10 md:grid-cols-[1fr_1fr] md:gap-8">
-          <div
-            className={
-              'order-2 text-center md:order-1 md:text-left ' + (drifting ? 'relative z-10 md:self-end md:pb-6' : '')
-            }
-          >
-            {drifting ? (
-              <h1 className="sr-only">Petrichor: where flowers bloom</h1>
-            ) : (
-              <motion.h1
+          <div className="order-2 text-center md:order-1 md:text-left">
+            <motion.h1
                 initial={reduce ? false : { opacity: 0, y: 12 }}
                 animate={ready ? { opacity: 1, y: 0 } : undefined}
                 transition={{ duration: 0.8 }}
@@ -273,8 +158,7 @@ export default function Hero({ onEnter, role }) {
               >
                 Where flowers bloom
               </motion.h1>
-            )}
-            {/* The button rises in once the page knows what it's showing. */}
+            {/* The button rises in with the title. */}
             <motion.button
               onClick={getToWork}
               initial={reduce ? false : { opacity: 0, y: 16, scale: 0.96 }}
@@ -282,7 +166,7 @@ export default function Hero({ onEnter, role }) {
               whileHover={{ scale: 1.04 }}
               whileTap={{ scale: 0.97 }}
               transition={{ type: 'spring', stiffness: 260, damping: 22 }}
-              className={(drifting ? '' : 'mt-10 ') + 'inline-flex items-center gap-2 rounded-full bg-fuchsia px-7 py-3 font-grotesk text-base font-bold text-white shadow-[0_0_40px_12px_rgba(0,0,0,0.6)]'}
+              className="mt-10 inline-flex items-center gap-2 rounded-full bg-fuchsia px-7 py-3 font-grotesk text-base font-bold text-white"
             >
               {owner ? 'Get to work' : 'Start reading'} <ArrowRight size={18} />
             </motion.button>
