@@ -174,11 +174,15 @@ export default function Book({ workId, onBack, onWrite }) {
     }
   }
 
+  // Adding a part, chapter or section opens it straight away, ready to write.
   async function add(kind, index = pieces.length) {
     setBusy(kind + index)
     setError(null)
     try {
-      setPieces(await insertPiece(work.id, pieces, index, kind))
+      const next = await insertPiece(work.id, pieces, index, kind)
+      setPieces(next)
+      const created = next[index]
+      if (created) onWrite(created)
     } catch (e) {
       setError(e.message)
     } finally {
