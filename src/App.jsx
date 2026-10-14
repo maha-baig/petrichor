@@ -142,11 +142,17 @@ export default function App() {
     else window.history.pushState(null, '', url)
   }, [hash])
 
-  // Back and Forward: show the page the address names.
+  // Back and Forward: show the page the address names, straight away, without
+  // the melt. Going back should feel immediate, not dim the page first.
+  const fromHistory = useRef(false)
+  useEffect(() => {
+    fromHistory.current = false
+  })
   useEffect(() => {
     const onPop = () => {
       const r = fromHash(window.location.hash || '#/')
       if (!r) return
+      fromHistory.current = true
       setEntered(r.entered)
       setTab(r.tab)
       setWorkId(r.workId)
@@ -275,6 +281,7 @@ export default function App() {
             >
               <MorphTransition
                 activeKey={tab}
+                instant={fromHistory.current}
                 transition="melt"
                 intensity={0.34}
                 aberration={0.2}
@@ -398,6 +405,7 @@ export default function App() {
           since it's the whole page dissolving rather than one panel. */}
       <MorphTransition
         activeKey={entered ? 'app' : 'home'}
+        instant={fromHistory.current}
         transition="melt"
         intensity={0.3}
         aberration={0.16}

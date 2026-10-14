@@ -219,7 +219,11 @@ function Comments({ piece, session, isOwner }) {
 
 function Reader({ piece, heading, over, prev, next, onOpen, onBack, backLabel, session, isOwner }) {
   const verse = /<br\s*\/?>/.test(piece.body || '')
-  useEffect(() => window.scrollTo({ top: 0 }), [piece.id])
+  // Braced: scrollTo now returns a promise in Chrome, and an effect that returns
+  // anything but a function crashes the whole page when it's left.
+  useEffect(() => {
+    window.scrollTo({ top: 0 })
+  }, [piece.id])
   return (
     <article className="animate-rise">
       <button onClick={onBack} className="-my-3 inline-flex items-center gap-1.5 py-3 text-sm text-muted hover:text-fuchsia">

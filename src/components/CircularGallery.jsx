@@ -665,6 +665,9 @@ class App {
     if (this.renderer && this.renderer.gl && this.renderer.gl.canvas.parentNode) {
       this.renderer.gl.canvas.parentNode.removeChild(this.renderer.gl.canvas)
     }
+    // Hand the WebGL context back. Browsers allow only a handful at once; each
+    // visit to the boards left one behind until they began blanking out.
+    this.renderer?.gl?.getExtension('WEBGL_lose_context')?.loseContext()
     this.container?.removeEventListener('keydown', this.boundOnKeyDown)
   }
 }

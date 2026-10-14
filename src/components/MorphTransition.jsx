@@ -32,6 +32,8 @@ export default function MorphTransition({
   ease = 'power2.inOut',
   scale = 2.4,
   radius = 16,
+  // Swap straight away this time, no melt: Back and Forward should feel immediate.
+  instant = false,
   className,
 }) {
   const uid = useId().replace(/:/g, '')
@@ -55,6 +57,9 @@ export default function MorphTransition({
   // effect mid-flight, or the cleanup would cancel the loop while the panel
   // is still fully melted and leave the filter stuck on.
   const shownRef = useRef(activeKey)
+  // Read when the key changes, not a reason to restart a melt on its own.
+  const instantRef = useRef(instant)
+  instantRef.current = instant
 
   useEffect(() => {
     if (activeKey === shownRef.current) return
@@ -62,8 +67,13 @@ export default function MorphTransition({
     const reduced =
       typeof matchMedia === 'function' &&
       matchMedia('(prefers-reduced-motion: reduce)').matches
+    // The filter is recomputed over the panel's whole box every frame, so it
+    // only stays smooth on a desktop and a panel about a screen tall. A phone,
+    // or a long page, would sit dimmed and stuttering instead of melting.
+    const coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches
+    const tooTall = () => (wrapRef.current?.offsetHeight || 0) > window.innerHeight * 2
 
-    if (reduced || transition !== 'melt') {
+    if (reduced || instantRef.current || coarse || tooTall() || transition !== 'melt') {
       shownRef.current = activeKey
       setShownKey(activeKey)
       return
@@ -90,6 +100,10 @@ export default function MorphTransition({
         swapped = true
         shownRef.current = activeKey
         setShownKey(activeKey)
+      } else if (swapped && tooTall()) {
+        // The new page turned out long: let it in without the melt.
+        settle()
+        return
       }
 
       if (elapsed < half * 2) {
