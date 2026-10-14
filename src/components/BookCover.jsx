@@ -4,8 +4,14 @@ import { bookTitle } from '../library.js'
  * A book's cover: her uploaded image, or — until there is one — a typeset
  * cover in the book's own colour, the way a proof copy looks.
  */
+const TYPE = {
+  sm: { imprint: 'text-[0.38rem]', title: 'text-sm', subtitle: 'text-[0.55rem]', author: 'text-[0.42rem]' },
+  md: { imprint: 'text-[0.5rem]', title: 'text-lg sm:text-xl', subtitle: 'text-[0.7rem]', author: 'text-[0.55rem]' },
+  lg: { imprint: 'text-[0.62rem]', title: 'text-3xl', subtitle: 'text-sm', author: 'text-[0.7rem]' },
+}
+
 export default function BookCover({ work, className = '', size = 'md' }) {
-  const big = size === 'lg'
+  const t = TYPE[size] || TYPE.md
   return (
     <div
       className={
@@ -18,18 +24,18 @@ export default function BookCover({ work, className = '', size = 'md' }) {
         <img src={work.coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
       ) : (
         <div className="absolute inset-0 flex flex-col items-center justify-between px-[10%] py-[14%] text-center text-[#f3ede4]">
-          <span className={'font-grotesk font-bold uppercase tracking-[0.3em] opacity-60 ' + (big ? 'text-[0.62rem]' : 'text-[0.5rem]')}>
+          <span className={'font-grotesk font-bold uppercase tracking-[0.3em] opacity-60 ' + t.imprint}>
             Petrichor
           </span>
           <div>
-            <div className={'font-serif italic leading-[1.05] ' + (big ? 'text-3xl' : 'text-lg sm:text-xl')}>
+            <div className={'break-words font-serif italic leading-[1.05] ' + t.title}>
               {bookTitle(work)}
             </div>
             {work.subtitle && (
-              <div className={'mt-2 font-serif italic opacity-70 ' + (big ? 'text-sm' : 'text-[0.7rem]')}>{work.subtitle}</div>
+              <div className={'mt-2 font-serif italic opacity-70 ' + t.subtitle}>{work.subtitle}</div>
             )}
           </div>
-          <span className={'font-grotesk uppercase tracking-[0.2em] opacity-75 ' + (big ? 'text-[0.7rem]' : 'text-[0.55rem]')}>
+          <span className={'font-grotesk uppercase tracking-[0.2em] opacity-75 ' + t.author}>
             {work.author || ' '}
           </span>
         </div>

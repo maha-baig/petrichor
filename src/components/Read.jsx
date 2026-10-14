@@ -2,18 +2,10 @@ import { useEffect, useState } from 'react'
 import { ArrowLeft, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react'
 import SignIn, { signOut } from '../auth.jsx'
 import BookCover from './BookCover.jsx'
+import CommentForm, { keepName, readName } from './CommentForm.jsx'
 import { requestAccess } from '../access.js'
 import { bookTitle, numberContents, pieceLabel } from '../library.js'
-import { addComment, deleteComment, listComments, listPublished } from '../reading.js'
-
-const NAME_KEY = 'petrichor-comment-name'
-const readName = () => {
-  try {
-    return localStorage.getItem(NAME_KEY) || ''
-  } catch {
-    return ''
-  }
-}
+import { addComment, deleteComment, listComments, listPublished, threadsOf } from '../reading.js'
 
 function when(iso) {
   const d = new Date(iso)
@@ -76,11 +68,7 @@ function Gate({ role, session, onAsked }) {
           setBusy(true)
           setError(null)
           try {
-            try {
-              localStorage.setItem(NAME_KEY, name.trim())
-            } catch {
-              /* only a convenience */
-            }
+            keepName(name)
             await requestAccess({ name, note })
             onAsked()
           } catch (err) {
@@ -122,38 +110,62 @@ function Gate({ role, session, onAsked }) {
 
 // ── comments ─────────────────────────────────────────────────────────────────
 
+/** One comment: who, when, what — and the ways to answer or remove it. */
+function Comment({ c, canDelete, onReply, onDelete }) {
+  return (
+    <div className="group">
+      <p className="text-sm">
+        <span className="font-bold text-body">{c.name}</span>
+        {c.by_owner && <span className="ml-2 rounded-full bg-fuchsia/10 px-2 py-0.5 text-xs text-fuchsia">author</span>}
+        <span className="ml-2 text-xs text-muted">{when(c.created_at)}</span>
+        {canDelete && (
+          <button
+            onClick={onDelete}
+            aria-label="Delete comment"
+            className="-my-3 ml-0.5 p-3 align-middle text-muted opacity-0 transition-opacity hover:text-fuchsia group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100"
+          >
+            <Trash2 size={13} />
+          </button>
+        )}
+      </p>
+      <p className="mt-1 whitespace-pre-wrap font-serif leading-relaxed text-body">{c.body}</p>
+      <button onClick={onReply} className="-my-2 py-2 text-xs text-muted hover:text-fuchsia">
+        Reply
+      </button>
+    </div>
+  )
+}
+
 function Comments({ piece, session, isOwner }) {
   const [comments, setComments] = useState(null)
-  const [name, setName] = useState(readName())
-  const [body, setBody] = useState('')
-  const [busy, setBusy] = useState(false)
+  const [replying, setReplying] = useState(null) // { thread, mention }: the reply being written
   const [error, setError] = useState(null)
 
   useEffect(() => {
     setComments(null)
+    setReplying(null)
     listComments(piece.id).then(setComments, (e) => setError(e.message))
   }, [piece.id])
 
-  async function post(e) {
-    e.preventDefault()
-    if (!name.trim() || !body.trim()) return setError('Add your name and a comment.')
-    setBusy(true)
-    setError(null)
+  async function post(name, body, parentId = null) {
+    const c = await addComment(piece.id, { name, body, parentId })
+    setComments((cs) => [...(cs || []), c])
+  }
+
+  async function remove(c, replies = 0) {
+    if (replies && !confirm(`Delete this comment and the ${replies === 1 ? 'reply' : `${replies} replies`} to it?`)) return
     try {
-      try {
-        localStorage.setItem(NAME_KEY, name.trim())
-      } catch {
-        /* only a convenience */
-      }
-      const c = await addComment(piece.id, { name, body })
-      setComments((cs) => [...(cs || []), c])
-      setBody('')
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setBusy(false)
+      await deleteComment(c.id)
+      setComments((cs) => cs.filter((x) => x.id !== c.id && x.parent_id !== c.id))
+    } catch (e) {
+      setError(e.message)
     }
   }
+
+  // Answering a reply joins the same thread, addressed to whoever wrote it.
+  const reply = (thread, to) => setReplying({ thread: thread.id, mention: to.id === thread.id || to.name === readName() ? '' : `@${to.name} ` })
+  const mine = (c) => isOwner || c.user_id === session?.user?.id
+  const threads = threadsOf(comments || [])
 
   return (
     <section className="mx-auto mt-16 max-w-[40rem] border-t border-line pt-8" aria-label="Comments">
@@ -162,55 +174,40 @@ function Comments({ piece, session, isOwner }) {
       </h3>
       {comments === null && !error && <p className="mt-4 font-serif italic text-muted">…</p>}
       {comments?.length === 0 && <p className="mt-4 font-serif italic text-muted">No comments yet. Be the first.</p>}
-      <ul className="mt-4 flex flex-col gap-5">
-        {comments?.map((c) => (
-          <li key={c.id} className="group">
-            <p className="text-sm">
-              <span className="font-bold text-body">{c.name}</span>
-              <span className="ml-2 text-xs text-muted">{when(c.created_at)}</span>
-              {(isOwner || c.user_id === session?.user?.id) && (
-                <button
-                  onClick={async () => {
-                    await deleteComment(c.id)
-                    setComments((cs) => cs.filter((x) => x.id !== c.id))
-                  }}
-                  aria-label="Delete comment"
-                  className="-my-3 ml-0.5 p-3 align-middle text-muted opacity-0 transition-opacity hover:text-fuchsia group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100"
-                >
-                  <Trash2 size={13} />
-                </button>
-              )}
-            </p>
-            <p className="mt-1 whitespace-pre-wrap font-serif leading-relaxed text-body">{c.body}</p>
+      {error && <p className="mt-4 text-sm text-fuchsia">{error}</p>}
+      <ul className="mt-4 flex flex-col gap-6">
+        {threads.map((t) => (
+          <li key={t.id}>
+            <Comment c={t} canDelete={mine(t)} onReply={() => reply(t, t)} onDelete={() => remove(t, t.replies.length)} />
+            {(t.replies.length > 0 || replying?.thread === t.id) && (
+              <ul className="ml-1 mt-3 flex flex-col gap-4 border-l border-line pl-4 sm:ml-2 sm:pl-5" aria-label={`Replies to ${t.name}`}>
+                {t.replies.map((r) => (
+                  <li key={r.id}>
+                    <Comment c={r} canDelete={mine(r)} onReply={() => reply(t, r)} onDelete={() => remove(r)} />
+                  </li>
+                ))}
+                {replying?.thread === t.id && (
+                  <li>
+                    <CommentForm
+                      key={replying.mention}
+                      reply
+                      initialBody={replying.mention}
+                      placeholder={`Reply to ${t.name}…`}
+                      onPost={async (name, body) => {
+                        await post(name, body, t.id)
+                        setReplying(null)
+                      }}
+                      onCancel={() => setReplying(null)}
+                    />
+                  </li>
+                )}
+              </ul>
+            )}
           </li>
         ))}
       </ul>
 
-      <form onSubmit={post} className="mt-8 flex flex-col gap-2">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Your name"
-          aria-label="Your name"
-          maxLength={60}
-          className="w-full max-w-xs rounded-full border border-line bg-card px-4 py-3 text-sm text-body placeholder:text-muted/60 focus:border-fuchsia focus:outline-none sm:py-2"
-        />
-        <textarea
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          rows={3}
-          placeholder="Leave a comment…"
-          aria-label="Your comment"
-          maxLength={4000}
-          className="w-full rounded-sm border border-line bg-card px-4 py-3 font-serif text-body placeholder:italic placeholder:text-muted/60 focus:border-fuchsia focus:outline-none"
-        />
-        <div>
-          <button disabled={busy} className="rounded-full bg-fuchsia px-5 py-3 font-grotesk text-sm font-bold text-white disabled:opacity-60 sm:py-2">
-            {busy ? 'Posting…' : 'Post comment'}
-          </button>
-        </div>
-        {error && <p className="text-sm text-fuchsia">{error}</p>}
-      </form>
+      <CommentForm onPost={(name, body) => post(name, body)} />
     </section>
   )
 }
@@ -311,7 +308,7 @@ export default function Read({ role, session, refresh, view = {}, onView }) {
         <Reader
           piece={poem}
           heading={poem.title?.trim() || 'Untitled'}
-          over="A poem"
+          over={poem.collection?.trim() || 'A poem'}
           onOpen={() => {}}
           onBack={() => setPieceId(null)}
           backLabel="All reading"
@@ -333,6 +330,7 @@ export default function Read({ role, session, refresh, view = {}, onView }) {
         <div className="mt-6 grid gap-10 md:grid-cols-[13rem_1fr]">
           <div className="mx-auto w-44 md:w-full">
             <BookCover work={book} size="lg" />
+            {book.cover_credit && book.coverUrl && <p className="mt-2 text-xs text-muted">{book.cover_credit}</p>}
           </div>
           <div>
             <h1 className="break-words font-serif text-3xl italic leading-tight text-ink sm:text-4xl">{bookTitle(book)}</h1>
@@ -385,19 +383,30 @@ export default function Read({ role, session, refresh, view = {}, onView }) {
           </ul>
         </>
       )}
-      {data.poems.length > 0 && (
+      {data.collections.length > 0 && (
         <>
           <h2 className="mt-12 font-grotesk text-[0.72rem] font-bold uppercase tracking-[0.2em] text-muted">Poems</h2>
-          <ul className="mt-4 grid gap-4 sm:grid-cols-2">
-            {data.poems.map((p) => (
-              <li key={p.id}>
-                <button
-                  onClick={() => setPieceId(p.id)}
-                  className="group w-full rounded-sm border border-line bg-card/60 p-5 text-left transition-colors hover:border-fuchsia"
-                >
-                  <span className="block font-serif text-xl italic text-ink group-hover:text-fuchsia">{p.title?.trim() || 'Untitled'}</span>
-                  <span className="mt-1 block text-xs text-muted">{when(p.published_at)}</span>
-                </button>
+          {/* Each collection under its own cover, its poems newest first beside it. */}
+          <ul className="mt-4 grid gap-8 lg:grid-cols-2">
+            {data.collections.map((c) => (
+              <li key={c.id} className="grid grid-cols-[5.5rem_1fr] gap-5 sm:grid-cols-[7rem_1fr]">
+                <BookCover work={c} />
+                <div className="min-w-0">
+                  <div className="font-serif text-xl italic leading-tight text-ink">{c.title?.trim() || 'Poems'}</div>
+                  <div className="mt-0.5 text-xs text-muted">
+                    {c.poems.length} {c.poems.length === 1 ? 'poem' : 'poems'}
+                  </div>
+                  <ol className="mt-3 border-t border-line/60">
+                    {c.poems.map((p) => (
+                      <li key={p.id} className="border-b border-line/60">
+                        <button onClick={() => setPieceId(p.id)} className="group flex w-full items-baseline justify-between gap-3 py-2.5 text-left">
+                          <span className="min-w-0 truncate font-serif text-lg italic text-ink group-hover:text-fuchsia">{p.title?.trim() || 'Untitled'}</span>
+                          <span className="shrink-0 text-xs text-muted">{when(p.published_at)}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
               </li>
             ))}
           </ul>

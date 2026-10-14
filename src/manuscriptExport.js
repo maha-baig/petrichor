@@ -2,6 +2,7 @@
 //  Taking a book out of Petrichor: an EPUB for e-readers, a print-ready PDF
 //  through the browser's own print dialog, and plain text / Markdown.
 //
+//  Both open on the cover: hers, or the typeset one the shelf shows (coverArt).
 //  Chapters are stored as the editor's HTML. Parts open on a page of their
 //  own, chapters start a new page, sections run on inside their chapter.
 //  Spaces are kept exactly (white-space: pre-wrap), so indented verse survives.
@@ -9,6 +10,15 @@
 
 import JSZip from 'jszip'
 import { bookTitle, htmlToText, numberContents } from './library.js'
+import { coverJpeg } from './coverArt.js'
+
+const asDataUrl = (blob) =>
+  new Promise((resolve, reject) => {
+    const r = new FileReader()
+    r.onload = () => resolve(r.result)
+    r.onerror = () => reject(r.error)
+    r.readAsDataURL(blob)
+  })
 
 function save(blob, filename) {
   const url = URL.createObjectURL(blob)
@@ -129,17 +139,22 @@ function pieceHtml(p) {
  * Lay the book out and hand it to the browser's print dialog, where
  * "Save as PDF" makes the file. A hidden frame, so no pop-up is blocked.
  */
-export function printManuscript({ work, pieces }, trim = '6x9') {
+export async function printManuscript({ work, pieces }, trim = '6x9') {
   const body = numberContents(pieces).map(pieceHtml).join('\n')
+  const cover = await asDataUrl(await coverJpeg(work))
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(bookTitle(work))}</title>
 <style>
   @page { size: ${TRIMS[trim]?.size || TRIMS['6x9'].size}; margin: 0.8in 0.7in 0.9in; }
+  @page cover { margin: 0; }
   ${SHARED_CSS}
   body { margin: 0; color: #111; font-size: 11pt; }
+  .cover { page: cover; height: 100vh; break-after: page; }
+  .cover img { display: block; width: 100%; height: 100%; object-fit: cover; }
   .title-page, .dedication, .epigraph, .part { break-after: page; }
   .chapter, .part { break-before: page; }
   .chapter { padding-top: 1.1in; }
 </style></head><body>
+  <section class="cover"><img src="${cover}" alt=""></section>
   <section class="title-page"><h1>${esc(bookTitle(work))}</h1>
     ${work.subtitle ? `<div class="subtitle">${esc(work.subtitle)}</div>` : ''}
     ${work.author ? `<div class="author">${esc(work.author)}</div>` : ''}</section>
@@ -191,6 +206,10 @@ export async function epubBlob({ work, pieces }) {
     docs.push({ id, file, label, depth, inToc })
   }
 
+  // The cover: the image readers show on their shelf, and the first page.
+  zip.file('OEBPS/cover.jpg', await coverJpeg(work))
+  add('cover', 'Cover', `<section epub:type="cover" class="cover"><img src="cover.jpg" alt="${esc(title)}"/></section>`, { inToc: false })
+
   add(
     'title',
     title,
@@ -235,7 +254,10 @@ export async function epubBlob({ work, pieces }) {
   })
   flush()
 
-  zip.file('OEBPS/style.css', SHARED_CSS + '\n.title-page { padding-top: 20%; }\n.part { padding-top: 25%; }\n')
+  zip.file(
+    'OEBPS/style.css',
+    SHARED_CSS + '\n.title-page { padding-top: 20%; }\n.part { padding-top: 25%; }\n.cover { margin: 0; padding: 0; text-align: center; }\n.cover img { max-width: 100%; max-height: 100vh; }\n',
+  )
   zip.file(
     'OEBPS/nav.xhtml',
     xhtml(
@@ -257,10 +279,12 @@ export async function epubBlob({ work, pieces }) {
     <dc:language>en</dc:language>
     ${work.description ? `<dc:description>${esc(work.description)}</dc:description>` : ''}
     <meta property="dcterms:modified">${modified}</meta>
+    <meta name="cover" content="cover-image"/>
   </metadata>
   <manifest>
     <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
     <item id="css" href="style.css" media-type="text/css"/>
+    <item id="cover-image" href="cover.jpg" media-type="image/jpeg" properties="cover-image"/>
     ${docs.map((d) => `<item id="${d.id}" href="${d.file}" media-type="application/xhtml+xml"/>`).join('\n    ')}
   </manifest>
   <spine>

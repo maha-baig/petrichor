@@ -114,22 +114,29 @@ async function signCovers(works) {
   return works.map((w) => ({ ...w, coverUrl: w.cover_path ? map[w.cover_path] || null : null }))
 }
 
-/** Put a cover image in the bucket and on the book. Returns the updated book. */
-export async function uploadCover(workId, file) {
+// The credit line arrived with a later migration; until it has been run,
+// covers still save, just without one.
+const creditPatch = (row, credit) => (row && 'cover_credit' in row ? { cover_credit: credit || '' } : {})
+
+/**
+ * Put a cover image in the bucket and on the book (or poem collection), with
+ * the credit its picture asks for. Returns the updated work.
+ */
+export async function uploadCover(workId, file, { credit = '' } = {}) {
   const uid = await userId()
   const ext = (file.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg')
   const path = `${uid}/books/${workId}/cover-${Date.now()}.${ext}`
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type, upsert: true })
   if (error) throw new Error(`Couldn't save the cover: ${error.message}`)
-  const { data: old } = await supabase.from('works').select('cover_path').eq('id', workId).maybeSingle()
-  const work = await updateWork(workId, { cover_path: path })
+  const { data: old } = await supabase.from('works').select('*').eq('id', workId).maybeSingle()
+  const work = await updateWork(workId, { cover_path: path, ...creditPatch(old, credit) })
   if (old?.cover_path && old.cover_path !== path) supabase.storage.from(BUCKET).remove([old.cover_path])
   return work
 }
 
-export async function removeCover(workId, path) {
-  if (path) await supabase.storage.from(BUCKET).remove([path])
-  return updateWork(workId, { cover_path: null })
+export async function removeCover(work) {
+  if (work.cover_path) await supabase.storage.from(BUCKET).remove([work.cover_path])
+  return updateWork(work.id, { cover_path: null, ...creditPatch(work, '') })
 }
 
 // ── books ────────────────────────────────────────────────────────────────────
@@ -251,7 +258,8 @@ export async function getManuscript(workId) {
   const pieces = check(
     await supabase.from('pieces').select('*').eq('work_id', workId).order('position', { ascending: true }),
   )
-  return { work, pieces }
+  const [signed] = await signCovers([work]) // the cover goes into the e-book and the PDF
+  return { work: signed, pieces }
 }
 
 // ── versions ─────────────────────────────────────────────────────────────────
@@ -428,8 +436,8 @@ export async function setPublished(id, on) {
 
 export async function poemCollections() {
   const uid = await userId()
-  return check(
-    await supabase.from('works').select('*').eq('user_id', uid).eq('kind', 'poems').order('created_at', { ascending: true }),
+  return signCovers(
+    check(await supabase.from('works').select('*').eq('user_id', uid).eq('kind', 'poems').order('created_at', { ascending: true })),
   )
 }
 

@@ -96,13 +96,9 @@ export async function downloadBackup(onProgress = () => {}) {
     used.add(name)
     const folder = root.folder(`books/${name}`)
     folder.file(`${name}.md`, bookText({ work, pieces: mine }, 'md'))
-    try {
-      folder.file(`${name}.epub`, await epubBlob({ work, pieces: mine }))
-    } catch {
-      /* a book that won't bind still has its Markdown and its data */
-    }
 
     let coverFile = null
+    let coverUrl = null
     if (work.cover_path) {
       try {
         const { data } = await supabase.storage.from(BUCKET).download(work.cover_path)
@@ -110,10 +106,19 @@ export async function downloadBackup(onProgress = () => {}) {
           const ext = work.cover_path.split('.').pop() || 'jpg'
           coverFile = `books/${name}/cover.${ext}`
           root.file(coverFile, data)
+          coverUrl = URL.createObjectURL(data) // so the e-book opens on it too
         }
       } catch {
         /* the cover is the one thing that can be remade; don't fail the backup for it */
       }
+    }
+
+    try {
+      folder.file(`${name}.epub`, await epubBlob({ work: { ...work, coverUrl }, pieces: mine }))
+    } catch {
+      /* a book that won't bind still has its Markdown and its data */
+    } finally {
+      if (coverUrl) URL.revokeObjectURL(coverUrl)
     }
 
     books.push({

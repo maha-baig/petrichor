@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
-import { FolderPlus, Plus } from 'lucide-react'
+import { FolderPlus, ImagePlus, Plus } from 'lucide-react'
 import { ShelfSwitch } from './Books.jsx'
+import BookCover from './BookCover.jsx'
+import CoverDesigner from './CoverDesigner.jsx'
 import { createPoem, createPoemCollection, htmlToText, listPoems } from '../library.js'
 
 function when(iso) {
@@ -27,6 +29,7 @@ export default function Poems({ onOpen, onBooks }) {
   const [filter, setFilter] = useState('all')
   const [busy, setBusy] = useState(false)
   const [naming, setNaming] = useState(false)
+  const [designing, setDesigning] = useState(null) // the collection whose cover is open
   const [error, setError] = useState(null)
 
   const load = () =>
@@ -68,6 +71,12 @@ export default function Poems({ onOpen, onBooks }) {
   const collections = data?.collections || []
   const byId = Object.fromEntries(collections.map((c) => [c.id, c]))
   const poems = (data?.poems || []).filter((p) => filter === 'all' || p.work_id === filter)
+  const shown = byId[filter] // one collection, under its cover
+
+  function coverSaved(work) {
+    setData((x) => ({ ...x, collections: x.collections.map((c) => (c.id === work.id ? work : c)) }))
+    setDesigning(null)
+  }
 
   return (
     <section>
@@ -118,6 +127,27 @@ export default function Poems({ onOpen, onBooks }) {
               <FolderPlus size={14} /> collection
             </button>
           )}
+        </div>
+      )}
+
+      {designing && <CoverDesigner work={designing} onSaved={coverSaved} onClose={() => setDesigning(null)} />}
+      {shown && (
+        <div className="mt-6 flex items-center gap-5">
+          <button onClick={() => setDesigning(shown)} aria-label="Change this collection's cover" className="w-20 shrink-0 transition-transform hover:-translate-y-1 sm:w-24">
+            <BookCover work={shown} size="sm" />
+          </button>
+          <div className="min-w-0">
+            <p className="break-words font-serif text-2xl italic leading-tight text-ink">{shown.title || 'Untitled collection'}</p>
+            <p className="mt-0.5 text-xs text-muted">
+              {poems.length} {poems.length === 1 ? 'poem' : 'poems'}
+            </p>
+            <button
+              onClick={() => setDesigning(shown)}
+              className="mt-3 inline-flex min-h-[40px] items-center gap-1.5 rounded-full border border-fuchsia/60 px-4 py-1.5 font-grotesk text-sm font-bold text-fuchsia transition-colors hover:bg-fuchsia/10 sm:min-h-0"
+            >
+              <ImagePlus size={14} /> {shown.cover_path ? 'Change cover' : 'Add a cover'}
+            </button>
+          </div>
         </div>
       )}
 

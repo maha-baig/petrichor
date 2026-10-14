@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { decideReader, listReaders, removeReader } from '../access.js'
-import { deleteComment, markCommentsSeen, recentComments } from '../reading.js'
+import { addComment, deleteComment, markCommentsSeen, recentComments } from '../reading.js'
+import CommentForm from './CommentForm.jsx'
 
 const STATUS = {
   pending: 'bg-amber/15 text-amber',
@@ -31,6 +32,7 @@ export default function People({ onOpenPiece, onSeen }) {
   const [readers, setReaders] = useState(null)
   const [comments, setComments] = useState(null)
   const [fresh, setFresh] = useState(new Set()) // unseen when this page opened
+  const [replying, setReplying] = useState(null) // the comment being answered
   const [error, setError] = useState(null)
 
   useEffect(() => {
@@ -64,6 +66,18 @@ export default function People({ onOpenPiece, onSeen }) {
       setError(e.message)
     }
   }
+
+  // Her answer joins the thread the comment belongs to.
+  async function reply(c, name, body) {
+    const saved = await addComment(c.piece_id, { name, body, parentId: c.parent_id || c.id })
+    setComments((cs) => [{ ...saved, pieces: c.pieces }, ...cs])
+    setReplying(null)
+  }
+
+  // What readers said; her own replies only show as “you replied” on what they answer.
+  const theirs = (comments || []).filter((c) => !c.by_owner)
+  const answered = (c) =>
+    comments.some((x) => x.by_owner && x.created_at > c.created_at && (x.parent_id === c.id || (c.parent_id && x.parent_id === c.parent_id)))
 
   const order = { pending: 0, approved: 1, blocked: 2 }
   const sorted = [...(readers || [])].sort((a, b) => order[a.status] - order[b.status])
@@ -104,11 +118,11 @@ export default function People({ onOpenPiece, onSeen }) {
       </div>
 
       <div className="mt-12">
-        <Heading>Comments{comments?.length ? ` · ${comments.length}` : ''}</Heading>
+        <Heading>Comments{theirs.length ? ` · ${theirs.length}` : ''}</Heading>
         {comments === null && !error && <p className="mt-4 font-serif italic text-muted">…</p>}
-        {comments?.length === 0 && <p className="mt-4 font-serif italic text-muted">No comments yet.</p>}
+        {comments && theirs.length === 0 && <p className="mt-4 font-serif italic text-muted">No comments yet.</p>}
         <ul className="mt-4 flex flex-col gap-4">
-          {comments?.map((c) => (
+          {theirs.map((c) => (
             <li
               key={c.id}
               className={'rounded-sm border p-4 ' + (fresh.has(c.id) ? 'border-fuchsia/50 bg-fuchsia/5' : 'border-line')}
@@ -126,6 +140,7 @@ export default function People({ onOpenPiece, onSeen }) {
                   {c.pieces?.works?.kind === 'book' && c.pieces.works.title && (
                     <span className="text-xs text-muted"> · {c.pieces.works.title}</span>
                   )}
+                  {c.answering && <span className="text-xs text-muted"> · in {c.answering}’s thread</span>}
                   {fresh.has(c.id) && <span className="ml-2 text-xs text-fuchsia">new</span>}
                 </p>
                 <span className="flex items-center gap-2 text-xs text-muted">
@@ -133,7 +148,7 @@ export default function People({ onOpenPiece, onSeen }) {
                   <button
                     onClick={async () => {
                       await deleteComment(c.id)
-                      setComments((cs) => cs.filter((x) => x.id !== c.id))
+                      setComments((cs) => cs.filter((x) => x.id !== c.id && x.parent_id !== c.id))
                     }}
                     aria-label="Delete comment"
                     className="-m-3 p-3 hover:text-fuchsia sm:m-0 sm:p-0"
@@ -143,6 +158,24 @@ export default function People({ onOpenPiece, onSeen }) {
                 </span>
               </div>
               <p className="mt-2 whitespace-pre-wrap font-serif leading-relaxed text-body">{c.body}</p>
+              {replying === c.id ? (
+                <div className="mt-3 border-l border-line pl-4">
+                  <CommentForm
+                    reply
+                    initialBody={c.parent_id ? `@${c.name} ` : ''}
+                    placeholder={`Reply to ${c.name}…`}
+                    onPost={(name, body) => reply(c, name, body)}
+                    onCancel={() => setReplying(null)}
+                  />
+                </div>
+              ) : (
+                <p className="mt-2 flex items-center gap-3 text-xs">
+                  <button onClick={() => setReplying(c.id)} className="-my-2 py-2 text-muted hover:text-fuchsia">
+                    Reply
+                  </button>
+                  {answered(c) && <span className="text-fuchsia">you replied</span>}
+                </p>
+              )}
             </li>
           ))}
         </ul>

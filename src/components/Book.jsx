@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ArrowDown, ArrowUp, BookOpen, Download, FileUp, ImagePlus, Plus, Trash2 } from 'lucide-react'
 import BookCover from './BookCover.jsx'
+import CoverDesigner from './CoverDesigner.jsx'
 import {
   bookTitle,
   deletePiece,
@@ -13,7 +14,6 @@ import {
   removeCover,
   reorderPieces,
   updateWork,
-  uploadCover,
   listGenres,
 } from '../library.js'
 import { TRIMS, downloadEpub, downloadText, printManuscript } from '../manuscriptExport.js'
@@ -62,7 +62,7 @@ function ExportMenu({ workId }) {
     try {
       const data = await getManuscript(workId)
       if (kind === 'epub') await downloadEpub(data)
-      if (kind === 'pdf') printManuscript(data, trim)
+      if (kind === 'pdf') await printManuscript(data, trim)
       if (kind === 'txt' || kind === 'md') downloadText(data, kind)
     } catch (e) {
       setError(e.message)
@@ -127,7 +127,7 @@ export default function Book({ workId, onBack, onWrite }) {
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(null)
   const [confirming, setConfirming] = useState(null) // piece id, or 'book'
-  const fileInput = useRef(null)
+  const [designing, setDesigning] = useState(false)
   const docInput = useRef(null)
   const [importing, setImporting] = useState(null) // progress text
   const [notionOpen, setNotionOpen] = useState(false)
@@ -249,26 +249,28 @@ export default function Book({ workId, onBack, onWrite }) {
     }
   }
 
-  async function onCoverFile(e) {
-    const file = e.target.files?.[0]
-    e.target.value = ''
-    if (!file) return
-    if (!file.type.startsWith('image/')) return setError('A cover has to be an image.')
-    if (file.size > 8 * 1024 * 1024) return setError('That image is over 8 MB. Try a smaller one.')
-    setBusy('cover')
+  async function dropCover() {
     setError(null)
     try {
-      setWork(await uploadCover(work.id, file))
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setBusy(null)
+      setWork(await removeCover(work))
+    } catch (e) {
+      setError(e.message)
     }
   }
 
   return (
     <section className="animate-rise">
       {notionOpen && <NotionPicker verb="Add as chapters" onPick={fromNotion} onClose={() => setNotionOpen(false)} />}
+      {designing && (
+        <CoverDesigner
+          work={work}
+          onClose={() => setDesigning(false)}
+          onSaved={(w) => {
+            setWork(w)
+            setDesigning(false)
+          }}
+        />
+      )}
       <button onClick={onBack} className="-my-2 inline-block min-h-[40px] py-2 text-sm text-muted hover:text-fuchsia sm:min-h-0">
         ← all books
       </button>
@@ -276,23 +278,27 @@ export default function Book({ workId, onBack, onWrite }) {
       {/* ── The book itself ─────────────────────────────────────────────── */}
       <div className="mt-6 grid gap-10 md:grid-cols-[15rem_1fr]">
         <div>
-          <div className="mx-auto w-48 md:mx-0 md:w-full">
+          {/* The cover is the way in to changing it. */}
+          <button
+            onClick={() => setDesigning(true)}
+            aria-label={work.cover_path ? 'Change the cover' : 'Add a cover'}
+            className="group relative mx-auto block w-48 rounded-[3px] md:mx-0 md:w-full"
+          >
             <BookCover work={work} size="lg" />
-          </div>
+            <span className="pointer-events-none absolute inset-x-3 bottom-3 hidden items-center justify-center gap-1.5 rounded-full bg-black/65 px-3 py-2 text-xs font-bold text-white group-hover:flex group-focus-visible:flex">
+              <ImagePlus size={13} /> {work.cover_path ? 'Change cover' : 'Add a cover'}
+            </span>
+          </button>
+          {work.cover_credit && work.cover_path && <p className="mt-2 text-center text-xs text-muted md:text-left">{work.cover_credit}</p>}
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2 md:justify-start">
-            <input ref={fileInput} type="file" accept="image/*" onChange={onCoverFile} className="hidden" />
             <button
-              onClick={() => fileInput.current?.click()}
-              disabled={busy === 'cover'}
-              className="inline-flex items-center gap-1.5 rounded-full border border-line min-h-[40px] px-3 py-1 text-xs text-muted transition-colors hover:border-fuchsia hover:text-fuchsia disabled:opacity-60 md:min-h-0"
+              onClick={() => setDesigning(true)}
+              className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full border border-fuchsia/60 px-4 py-2 font-grotesk text-sm font-bold text-fuchsia transition-colors hover:bg-fuchsia/10"
             >
-              <ImagePlus size={13} /> {busy === 'cover' ? 'Uploading…' : work.cover_path ? 'Change cover' : 'Upload cover'}
+              <ImagePlus size={15} /> {work.cover_path ? 'Change cover' : 'Add a cover'}
             </button>
             {work.cover_path && (
-              <button
-                onClick={async () => setWork(await removeCover(work.id, work.cover_path))}
-                className="min-h-[40px] px-1 text-xs text-muted hover:text-fuchsia md:min-h-0"
-              >
+              <button onClick={dropCover} className="min-h-[40px] px-1 text-xs text-muted hover:text-fuchsia md:min-h-0">
                 remove
               </button>
             )}
