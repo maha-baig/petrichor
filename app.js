@@ -14,7 +14,7 @@ import {
 } from './prompts.js'
 import { searchImages, availableSources, verify as verifyImageUrl } from './imageSearch.js'
 import { notionRoutes } from './notion.js'
-import { ownerOnly } from './owner.js'
+import { ownerOnly, supabaseUrl, supabaseAnon } from './owner.js'
 
 const PORT = process.env.PORT || 8788
 
@@ -559,6 +559,26 @@ app.post('/api/assist/titles', (req, res) => {
 
 // Notion import (owner-only; see notion.js)
 notionRoutes(app)
+
+// The free Supabase plan pauses a quiet project, which takes sign-in and saving
+// down with it. Vercel calls this once a day (crons in vercel.json) so the
+// database always has some activity. app_owner is readable by everyone, and
+// nothing from it is sent back.
+app.get('/api/keepalive', async (_req, res) => {
+  if (!supabaseUrl() || !supabaseAnon()) {
+    return res.status(503).json({ ok: false, error: 'Supabase is not configured.' })
+  }
+  try {
+    const db = await fetch(`${supabaseUrl()}/rest/v1/app_owner?select=user_id&limit=1`, {
+      headers: { apikey: supabaseAnon() },
+    })
+    if (!db.ok) throw new Error(`Supabase answered ${db.status}.`)
+    res.json({ ok: true })
+  } catch (e) {
+    console.error('Keep-alive failed:', e.message)
+    res.status(502).json({ ok: false, error: e.message })
+  }
+})
 
 app.get('/api/health', (_req, res) =>
   res.json({

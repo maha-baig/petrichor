@@ -8,8 +8,8 @@
 //  asking Supabase itself. Answers are cached for a minute per session.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const supabaseUrl = () => process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
-const supabaseAnon = () => process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
+export const supabaseUrl = () => process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
+export const supabaseAnon = () => process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
 
 const cache = new Map() // jwt → { owner, until }
 const TTL = 60 * 1000
