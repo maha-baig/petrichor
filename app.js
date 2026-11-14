@@ -39,6 +39,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 const app = express()
 
+// No ETags. Given one, the app's WebView revalidates, and Vercel answers with a
+// bare 304 that drops Access-Control-Allow-Origin, so the WebView throws the
+// cached copy away as a CORS failure. These answers are small and mostly
+// change anyway, so revalidating saves nothing.
+app.set('etag', false)
+
 // The Android app runs its pages from https://localhost (capacitor://localhost
 // on iOS), so its calls here are cross-origin; let those two in. The website is
 // same-origin and never needs this. Sign-in travels as a bearer token, not a
