@@ -155,8 +155,8 @@ export async function downloadBackup(onProgress = () => {}) {
 
   onProgress('Zipping…')
   const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' })
-  saveFile(blob, `petrichor-backup-${stamp()}.zip`)
-  await markBackedUp()
+  // Backing out of the app's share sheet saved nothing, so don't count it.
+  if ((await saveFile(blob, `petrichor-backup-${stamp()}.zip`)) !== false) await markBackedUp()
   return data.counts
 }
 

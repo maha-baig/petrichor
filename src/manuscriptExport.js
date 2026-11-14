@@ -11,6 +11,7 @@
 import JSZip from 'jszip'
 import { bookTitle, htmlToText, numberContents } from './library.js'
 import { coverJpeg } from './coverArt.js'
+import { isNative, printHtml, shareFile } from './native.js'
 
 const asDataUrl = (blob) =>
   new Promise((resolve, reject) => {
@@ -20,7 +21,9 @@ const asDataUrl = (blob) =>
     r.readAsDataURL(blob)
   })
 
-function save(blob, filename) {
+// Resolves false only when the app's share sheet is dismissed.
+async function save(blob, filename) {
+  if (isNative) return shareFile(blob, filename) // the WebView ignores <a download>
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
@@ -29,6 +32,7 @@ function save(blob, filename) {
   a.click()
   a.remove()
   setTimeout(() => URL.revokeObjectURL(url), 4000)
+  return true
 }
 
 function slug(s, max = 48) {
@@ -113,7 +117,7 @@ export function bookText({ work, pieces }, format = 'txt') {
 
 export function downloadText(data, format = 'txt') {
   const md = format === 'md'
-  save(new Blob([bookText(data, format)], { type: md ? 'text/markdown' : 'text/plain' }), `${slug(bookTitle(data.work))}.${format}`)
+  return save(new Blob([bookText(data, format)], { type: md ? 'text/markdown' : 'text/plain' }), `${slug(bookTitle(data.work))}.${format}`)
 }
 
 // ── print / PDF ──────────────────────────────────────────────────────────────
@@ -162,6 +166,9 @@ export async function printManuscript({ work, pieces }, trim = '6x9') {
   ${work.epigraph ? `<section class="epigraph">${esc(work.epigraph)}</section>` : ''}
   ${body}
 </body></html>`
+
+  // The app's WebView has no print(); the system dialog does the same job.
+  if (isNative) return printHtml(html, bookTitle(work))
 
   const frame = document.createElement('iframe')
   frame.setAttribute('aria-hidden', 'true')
@@ -297,7 +304,7 @@ export async function epubBlob({ work, pieces }) {
 }
 
 export async function downloadEpub(data) {
-  save(await epubBlob(data), `${slug(bookTitle(data.work))}.epub`)
+  return save(await epubBlob(data), `${slug(bookTitle(data.work))}.epub`)
 }
 
 export { save as saveFile, slug }

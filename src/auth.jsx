@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Feather } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from './lib/supabase.js'
+import { authRedirect, isNative, openInBrowser } from './native.js'
 
 /**
  * Who's writing. Returns undefined while we're still asking, null when nobody
@@ -99,13 +100,20 @@ export default function SignIn({ recovering = false, onRecovered }) {
   }, [recovering])
 
   // Off to Google and back: Supabase returns her here with a session in the URL.
+  // In the app, Google's page opens in the phone's browser (Google won't sign
+  // in inside a WebView) and the link back reopens the app (see native.js).
   async function withGoogle() {
     setBusy(true)
     setError(null)
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: authRedirect(), skipBrowserRedirect: isNative },
     })
+    if (!error && isNative) {
+      await openInBrowser(data.url).catch((e) => setError(plain(e.message || String(e))))
+      setBusy(false)
+      return
+    }
     if (error) {
       setError(
         /provider is not enabled|Unsupported provider/i.test(error.message)
@@ -136,7 +144,7 @@ export default function SignIn({ recovering = false, onRecovered }) {
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
-          options: { emailRedirectTo: window.location.origin },
+          options: { emailRedirectTo: authRedirect() },
         })
         if (error) throw error
         // With email confirmation on, there's no session until she clicks the link.
@@ -146,7 +154,7 @@ export default function SignIn({ recovering = false, onRecovered }) {
         }
       } else if (mode === 'reset') {
         const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-          redirectTo: window.location.origin,
+          redirectTo: authRedirect(),
         })
         if (error) throw error
         setNotice(`If there's an account for ${email.trim()}, a reset link is on its way.`)

@@ -5,9 +5,10 @@
 
 import { getManuscript, htmlToText, numberContents, pieceLabel } from './library.js'
 import { authHeaders } from './lib/supabase.js'
+import { apiUrl } from './native.js'
 
 async function post(path, body) {
-  const res = await fetch(`/api/assist/${path}`, {
+  const res = await fetch(apiUrl(`/api/assist/${path}`), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
     body: JSON.stringify(body),

@@ -1,8 +1,9 @@
 import { authHeaders } from './lib/supabase.js'
+import { apiUrl } from './native.js'
 
 // Every engine answers the owner only; her session goes with each request.
 async function post(path, body) {
-  const res = await fetch(path, {
+  const res = await fetch(apiUrl(path), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
     body: JSON.stringify(body),
@@ -33,5 +34,10 @@ export const illustrate = ({ prompt, negative }) => post('/api/illustrate', { pr
 
 // Candidates for the mood board, from one of the search terms. source:
 // 'openverse' | 'pexels' | 'unsplash' — omit for the server's default.
+// The pictures come back as /api/images/proxy links, which only resolve next
+// to the server; in the app they need the live site in front.
 export const searchImages = ({ term, source, count }) =>
-  post('/api/images', { term, source, count })
+  post('/api/images', { term, source, count }).then((r) => ({
+    ...r,
+    results: r.results?.map((x) => ({ ...x, thumb: apiUrl(x.thumb), full: apiUrl(x.full) })),
+  }))

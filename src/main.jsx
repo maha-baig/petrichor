@@ -1,7 +1,11 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
+import { listenForSignInLinks } from './native.js'
 import './index.css'
+
+// In the Android app, sign-in links reopen the app; on the website this is a no-op.
+listenForSignInLinks()
 
 // Default to dark; honour a saved choice if one exists.
 document.documentElement.setAttribute(

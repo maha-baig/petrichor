@@ -38,6 +38,24 @@ const COMFY_CKPT = process.env.COMFY_CKPT || 'dreamshaper_8.safetensors'
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 const app = express()
+
+// The Android app runs its pages from https://localhost (capacitor://localhost
+// on iOS), so its calls here are cross-origin; let those two in. The website is
+// same-origin and never needs this. Sign-in travels as a bearer token, not a
+// cookie, so opening CORS to the app gives nothing away without one.
+const APP_ORIGINS = new Set(['https://localhost', 'capacitor://localhost'])
+app.use('/api', (req, res, next) => {
+  res.vary('Origin')
+  const origin = req.headers.origin
+  if (!origin || !APP_ORIGINS.has(origin)) return next()
+  res.set('Access-Control-Allow-Origin', origin)
+  if (req.method !== 'OPTIONS') return next()
+  res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+  res.set('Access-Control-Allow-Headers', 'Authorization, Content-Type')
+  res.set('Access-Control-Max-Age', '86400')
+  return res.status(204).end()
+})
+
 app.use(express.json({ limit: '30mb' })) // pasted mood-board images travel as base64
 
 // Every engine that spends the AI allowance (or reads her Notion) answers the

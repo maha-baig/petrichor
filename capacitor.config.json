@@ -1,0 +1,10 @@
+{
+  "appId": "com.mahabaig.petrichor",
+  "appName": "Petrichor",
+  "webDir": "dist",
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "native"
+    }
+  }
+}

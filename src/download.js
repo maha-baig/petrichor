@@ -5,8 +5,11 @@
 
 import JSZip from 'jszip'
 import { workspaceTitle } from './store.js'
+import { isNative, shareFile } from './native.js'
 
-function save(blob, filename) {
+// Resolves false only when the app's share sheet is dismissed.
+async function save(blob, filename) {
+  if (isNative) return shareFile(blob, filename) // the WebView ignores <a download>
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
@@ -16,6 +19,7 @@ function save(blob, filename) {
   a.remove()
   // give the browser a moment to start the download before revoking
   setTimeout(() => URL.revokeObjectURL(url), 4000)
+  return true
 }
 
 // "the ache of a summer that's ending" → "the-ache-of-a-summer-thats-ending"
@@ -263,12 +267,12 @@ export async function downloadWorkspaceZip(ws) {
   }
 
   const blob = await zip.generateAsync({ type: 'blob' })
-  save(blob, `${name}.zip`)
+  return save(blob, `${name}.zip`)
 }
 
 export async function downloadBoardImage(ws) {
   const blob = await boardCollage(ws.images)
-  save(blob, `${slug(workspaceTitle(ws))}-mood-board.png`)
+  return save(blob, `${slug(workspaceTitle(ws))}-mood-board.png`)
 }
 
 export async function downloadPalette(ws) {
@@ -277,9 +281,9 @@ export async function downloadPalette(ws) {
     ...(ws.boardPalette || []).map((hex) => ({ hex })),
   ]
   const blob = await paletteSwatch(colours, { title: workspaceTitle(ws) })
-  save(blob, `${slug(workspaceTitle(ws))}-palette.png`)
+  return save(blob, `${slug(workspaceTitle(ws))}-palette.png`)
 }
 
 export async function downloadPoem(ws) {
-  save(new Blob([ws.poem.trimEnd() + '\n'], { type: 'text/plain' }), `${slug(workspaceTitle(ws))}.txt`)
+  return save(new Blob([ws.poem.trimEnd() + '\n'], { type: 'text/plain' }), `${slug(workspaceTitle(ws))}.txt`)
 }

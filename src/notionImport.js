@@ -10,6 +10,7 @@
 import { supabase } from './lib/supabase.js'
 import { createPiece, createWork, htmlToText, countWords } from './library.js'
 import { htmlToChapters } from './importDoc.js'
+import { apiUrl } from './native.js'
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
@@ -17,7 +18,7 @@ async function call(path, body) {
   const { data } = await supabase.auth.getSession()
   const jwt = data?.session?.access_token
   if (!jwt) throw new Error('Sign in to import from Notion.')
-  const res = await fetch(`/api/notion/${path}`, {
+  const res = await fetch(apiUrl(`/api/notion/${path}`), {
     method: body ? 'POST' : 'GET',
     headers: { Authorization: `Bearer ${jwt}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
     body: body ? JSON.stringify(body) : undefined,

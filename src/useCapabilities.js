@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { apiUrl } from './native.js'
 
 // What can this environment actually do? The mood board's vision reading and
 // image generation need Ollama and ComfyUI running on the machine, so they
@@ -12,7 +13,7 @@ let inflight = null
 function load() {
   if (cache) return Promise.resolve(cache)
   if (!inflight) {
-    inflight = fetch('/api/health')
+    inflight = fetch(apiUrl('/api/health'))
       .then((r) => r.json())
       .then((d) => {
         cache = d.capabilities || { text: true, moodboardVision: true, imageGeneration: true }
